@@ -31,7 +31,7 @@ for(first_season_year in 2006:1997) {
   )
 }
 
-flu_onset_baselines <- dat
+flu_onset_baselines <- as.data.frame(dat)
 
 write.csv(dat, "data-raw/flu_onset_baselines.csv", quote = FALSE, row.names = FALSE)
 save(flu_onset_baselines, file = "data/flu_onset_baselines.rdata")

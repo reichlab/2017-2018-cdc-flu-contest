@@ -68,5 +68,7 @@ flu_data$season_week <- ifelse(
   flu_data$week - 30
 )
 
+flu_data <- as.data.frame(flu_data)
+
 write.csv(flu_data, file = "data-raw/flu_data.csv")
 save(flu_data, file = "data/flu_data.rdata")
