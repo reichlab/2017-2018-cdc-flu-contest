@@ -1,0 +1,15 @@
+Package: cdcFlu20172018
+Title: code for cdc flu contest 2017-2018
+Version: 0.0.0.9000
+Authors@R: person("Evan", "Ray", , "elray@umass.edu", c("aut", "cre"))
+Description: code for cdc flu contest 2017-2018
+Depends:
+    R (>= 3.0.2)
+Imports:
+License: What license is it under?
+LazyData: true
+Suggests:
+    knitr,
+    testthat
+VignetteBuilder: knitr
+RoxygenNote: 5.0.1
