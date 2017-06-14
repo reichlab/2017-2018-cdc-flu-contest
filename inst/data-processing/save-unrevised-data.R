@@ -26,6 +26,9 @@ all_obs <- lapply(c("nat", paste0("hhs", 1:10)),
 
 all_obs$release_date <- as.Date(all_obs$release_date)
 all_obs <- all_obs %>% 
-    separate(epiweek, c("year", "season_week"), sep=5, remove=FALSE)
+    separate(epiweek, c("year", "season_week"), sep=4, remove=FALSE) %>%
+    mutate(
+        year = as.integer(year),
+        season_week = as.integer(season_week))
 
 saveRDS(all_obs, file = "data/flu_data_with_backfill.rds")
