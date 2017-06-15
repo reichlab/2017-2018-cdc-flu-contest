@@ -1,6 +1,7 @@
 ## code for KDE prediction models
 ## Nicholas Reich
 ## 7 October 2016
+## 15 June 2017 - updated for cdcFlu20172018 package 
 
 
 ## General strategy
@@ -9,7 +10,8 @@
 ## write a function 
 ##   inputs: a dataset
 ##   outputs: a list of KDE fits, one for each target
-## iterate function across all regions and years to create a set of LOSO fits
+## iterate function across all regions and years to create a set of fits 
+##    to all data to up the current year (not LOSO)
 ## 
 ## notes by target:
 ##     weekly incidence: use observations from target week +/- 1 week 
@@ -31,32 +33,31 @@
 ##' 
 ##' @param data cleaned usflu dataset
 ##' @param region character string identifying a region
-##' @param first_test_year along with first_test_week, defines the first time at which data is left out
-##' @param first_test_week 
+##' @param first_fit_year along with first_fit_week, defines the first time for which a fit is made
+##' @param first_fit_week 
 ##' @param path filepath for saving 
 ##' 
 ##' @return nothing, just saving files
 ##' 
+##' @details This function call assumes that the data object contains no data 
+##' from the testing phase. Starting with first_fit_year/first_fit_week, a 
+##' prospective fit will be made for each season until the end of the dataset.
+##' 
 ##' @export
 ##' 
-fit_region_kdes <- function(data, region, first_test_year, first_test_week, path) {
+fit_region_kdes <- function(data, region, first_fit_year, first_fit_week, path) {
     require(MMWRweek)
     require(dplyr)
     
     ### get proportion of region-seasons (across all regions and all seasons
-    ### before first test year/week) with no onset
+    ### before first fit year/week) with no onset
     onsets_by_region_season <- NULL
     for(region_val in unique(data$region)) {
-        data_subset <- data[which(data$region == region_val),]
-        ## subset to include only times before first test season and week
-        idx <- which(data_subset$year == first_test_year & data_subset$week == first_test_week)
-        data_subset <- data_subset[seq_len(idx - 1), , drop = FALSE]
-        
         observed_seasonal_quantities_by_season <- t(sapply(
-            as.character(unique(data_subset$season)),
+            as.character(unique(data$season)),
             function(season) {
                 get_observed_seasonal_quantities(
-                    data = data_subset,
+                    data = data,
                     season = season,
                     first_CDC_season_week = 10,
                     last_CDC_season_week = 41,
@@ -82,18 +83,24 @@ fit_region_kdes <- function(data, region, first_test_year, first_test_week, path
     }
     
     ### subsetting data
+
     ## subset to region of interest
     dat <- data[which(data$region == region),]
+    
+    ## check to make sure that all dates are in order!!
+    if(any(as.numeric(diff(dat$time))<0))
+        stop("dates in flu data are not ordered within region")
+    
     ## subset to include only times before first test season and week
-    idx <- which(dat$year == first_test_year & dat$week == first_test_week)
+    idx <- which(dat$year == first_fit_year & dat$week == first_fit_week)
     dat <- dat[seq_len(idx - 1), , drop = FALSE]
 
-    ## assumes region is either "X" or "Region k" format
-    reg_string <- ifelse(region=="X", "National", gsub(" ", "", region))
+    ## assumes region is either "National" or "Region k" format
+    reg_string <- ifelse(region=="National", "National", gsub(" ", "", region))
     
     ### loop over all seasons, including first season of test phase
     ### (i.e., create a fit that doesn't leave any training data out)
-    for(season_left_out in c(unique(as.character(dat$season)), paste0(first_test_year, "/", first_test_year + 1))) {
+    for(season_left_out in c(unique(as.character(dat$season)), paste0(first_fit_year, "/", first_fit_year + 1))) {
         tmpdat <- dat
         
         ### create filename for saving and check to see if fit exists already
