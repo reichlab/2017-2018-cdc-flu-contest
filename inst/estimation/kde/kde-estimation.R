@@ -9,7 +9,7 @@ library(dplyr)
 
 ## setup
 data(flu_data)
-region_strings <- c("X", paste("Region", 1:10))
+region_strings <- c("National", paste("Region", 1:10))
 fit_path <- "inst/estimation/kde/fits/"
 method <- "kde"
 analysis_time_seasons <- paste0(2000:2016, "/", 2001:2017)
