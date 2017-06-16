@@ -34,7 +34,7 @@
 ##' @param data cleaned usflu dataset
 ##' @param region character string identifying a region
 ##' @param first_fit_year along with first_fit_week, defines the first time for which a fit is made
-##' @param first_fit_week 
+##' @param first_fit_week see first_fit_week, week defined on calendar scale
 ##' @param path filepath for saving 
 ##' 
 ##' @return nothing, just saving files
@@ -98,9 +98,15 @@ fit_region_kdes <- function(data, region, first_fit_year, first_fit_week, path) 
     ## assumes region is either "National" or "Region k" format
     reg_string <- ifelse(region=="National", "National", gsub(" ", "", region))
     
-    ### loop over all seasons, including first season of test phase
-    ### (i.e., create a fit that doesn't leave any training data out)
-    for(season_left_out in c(unique(as.character(dat$season)), paste0(first_fit_year, "/", first_fit_year + 1))) {
+    ### loop over and fit each season of data, starting with first_fit_year
+    last_fit_year <- max(dat[which(dat$season_week==40),"year"])
+    seasons_to_fit <- paste0(
+        first_fit_year:(last_fit_year-1), 
+        "/", 
+        (first_fit_year+1):last_fit_year
+        )
+    
+    for(season_to_fit in seasons_to_fit) {
         tmpdat <- dat
         
         ### create filename for saving and check to see if fit exists already
@@ -108,23 +114,24 @@ fit_region_kdes <- function(data, region, first_fit_year, first_fit_week, path) 
             path,
             "kde-",
             reg_string,
-            "-fit-leave-out-",
-            gsub("/", "-", season_left_out),
+            "-fit-prospective-",
+            gsub("/", "-", season_to_fit),
             ".rds")
         if(file.exists(filename)){
-            message(paste(region, "leaving out", season_left_out, "already fit ::", Sys.time()))
+            message(paste(region, season_to_fit, "already fit ::", Sys.time()))
             next
         }
         
-        ### drop left-out season
-        idx_to_drop <- tmpdat$season == season_left_out
+        ### drop future season-weeks
+        idx_to_drop <- (tmpdat$year > first_fit_year) | 
+            (tmpdat$year == first_fit_year & tmpdat$week>=20)
         if(sum(idx_to_drop) > 0) {
           tmpdat <- tmpdat[-idx_to_drop,]
         }
         
         ### create fits
         kde_onset_week <- fit_kde_onset_week(tmpdat,
-          prob_no_onset = mean(onsets_by_region_season$onset[onsets_by_region_season$season != season_left_out] == "none"))
+          prob_no_onset = mean(onsets_by_region_season$onset[onsets_by_region_season$season != season_to_fit] == "none"))
         kde_peak_week <- fit_kde_peak_week(tmpdat)
         kde_log_peak_week_inc <- fit_kde_log_peak_week_inc(tmpdat)
         kde_log_weekly_inc <- fit_kde_weekly_inc(tmpdat)
