@@ -53,11 +53,14 @@ fit_region_kdes <- function(data, region, first_fit_year, first_fit_week, path) 
     ### before first fit year/week) with no onset
     onsets_by_region_season <- NULL
     for(region_val in unique(data$region)) {
+        
+        data_subset <- data[which(data$region == region_val),]
+
         observed_seasonal_quantities_by_season <- t(sapply(
-            as.character(unique(data$season)),
+            as.character(unique(data_subset$season)),
             function(season) {
                 get_observed_seasonal_quantities(
-                    data = data,
+                    data = data_subset,
                     season = season,
                     first_CDC_season_week = 10,
                     last_CDC_season_week = 41,
@@ -81,6 +84,7 @@ fit_region_kdes <- function(data, region, first_fit_year, first_fit_week, path) 
             )
         )
     }
+    onsets_by_region_season$season_year <- as.numeric(substr(onsets_by_region_season$season, 1, 4))
     
     ### subsetting data
 
@@ -91,25 +95,20 @@ fit_region_kdes <- function(data, region, first_fit_year, first_fit_week, path) 
     if(any(as.numeric(diff(dat$time))<0))
         stop("dates in flu data are not ordered within region")
     
-    ## subset to include only times before first test season and week
-    idx <- which(dat$year == first_fit_year & dat$week == first_fit_week)
-    dat <- dat[seq_len(idx - 1), , drop = FALSE]
-
     ## assumes region is either "National" or "Region k" format
     reg_string <- ifelse(region=="National", "National", gsub(" ", "", region))
     
     ### loop over and fit each season of data, starting with first_fit_year
-    last_fit_year <- max(dat[which(dat$season_week==40),"year"])
-    seasons_to_fit <- paste0(
-        first_fit_year:(last_fit_year-1), 
-        "/", 
-        (first_fit_year+1):last_fit_year
-        )
+    last_fit_year <- max(dat[which(data$season_week==40),"year"], na.rm=TRUE)
+    years_to_fit <- first_fit_year:last_fit_year
     
-    for(season_to_fit in seasons_to_fit) {
-        tmpdat <- dat
-        
+    for(year_to_fit in years_to_fit) {
+        ## subset to include only times before current year_to_fit
+        idx <- which(dat$year == year_to_fit & dat$week == first_fit_week)
+        tmpdat <- dat[seq_len(idx - 1), , drop = FALSE]
+
         ### create filename for saving and check to see if fit exists already
+        season_to_fit <- paste0(year_to_fit, "/", (year_to_fit+1))
         filename <- paste0(
             path,
             "kde-",
@@ -122,16 +121,9 @@ fit_region_kdes <- function(data, region, first_fit_year, first_fit_week, path) 
             next
         }
         
-        ### drop future season-weeks
-        idx_to_drop <- (tmpdat$year > first_fit_year) | 
-            (tmpdat$year == first_fit_year & tmpdat$week>=20)
-        if(sum(idx_to_drop) > 0) {
-          tmpdat <- tmpdat[-idx_to_drop,]
-        }
-        
         ### create fits
         kde_onset_week <- fit_kde_onset_week(tmpdat,
-          prob_no_onset = mean(onsets_by_region_season$onset[onsets_by_region_season$season != season_to_fit] == "none"))
+          prob_no_onset = mean(onsets_by_region_season$onset[onsets_by_region_season$season_year < year_to_fit] == "none"))
         kde_peak_week <- fit_kde_peak_week(tmpdat)
         kde_log_peak_week_inc <- fit_kde_log_peak_week_inc(tmpdat)
         kde_log_weekly_inc <- fit_kde_weekly_inc(tmpdat)
