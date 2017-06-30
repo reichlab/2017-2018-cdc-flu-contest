@@ -206,7 +206,7 @@ sample_predictive_trajectories_arima_wrapper <- function(
 #' @export
 fit_region_sarima <- function(
   data,
-  reg_num,
+  region,
   first_test_season,
   d = NA,
   D = NA,
@@ -216,15 +216,10 @@ fit_region_sarima <- function(
 
   require(forecast)
   ## subset data to be only the region of interest
-  if(reg_num == "X") {
-      region_string <- "X"
-  } else {
-      region_string <- paste("Region", reg_num)
-  }
-  data <- data[data$region == region_string,]
+  data <- data[data$region == region,]
 
-  ## Subset data to do estimation using only data up through first_test_season
-  ## remainder are held out for evaluating performance.
+  ## Subset data to do estimation using only data up to (and not including)
+  ## first_test_season.  remainder are held out
   first_ind_test_season <- min(which(data$season == first_test_season))
   data <- data[seq_len(first_ind_test_season - 1), , drop = FALSE]
 
@@ -245,33 +240,8 @@ fit_region_sarima <- function(
     pred_target <- ts(undifferenced_target_data, frequency = 52)
   }
 
-  if(reg_num == "X") {
-    filename <- paste0(
-      path,
-      "sarima-national-seasonal_difference_",
-      seasonal_difference,
-      "-transformation_",
-      transformation,
-      "-first_test_season-",
-      first_test_season,
-      ".rds")
-  } else {
-    reg_num <- as.numeric(reg_num)
-    filename <- paste0(
-      path,
-      "sarima-region_",
-      sprintf("%02d", reg_num),
-      "-seasonal_difference_",
-      seasonal_difference,
-      "-transformation_",
-      transformation,
-      "-first_test_season-",
-      first_test_season,
-      ".rds")
-  }
-
   if(identical(transformation, "box-cox")) {
-    lambda <- BoxCox.lambda(pred_target_season_NAs)
+    lambda <- BoxCox.lambda(pred_target)
 
     ## get SARIMA fit
     sarima_fit <- auto.arima(pred_target,
@@ -281,11 +251,19 @@ fit_region_sarima <- function(
       lambda = lambda)
   } else {
     ## log transformation (already done manually) or no transformation
-    sarima_fit <- auto.arima(pred_target_season_NAs,
+    sarima_fit <- auto.arima(pred_target,
       d = d,
       D = D,
       stationary = TRUE)
   }
 
+  filename <- paste0(
+    path,
+    "sarima-",
+    gsub(" ", "_", region),
+    "-seasonal_difference_", seasonal_difference,
+    "-transformation_", transformation,
+    "-first_test_season_", gsub("/", "_", first_test_season),
+    ".rds")
   saveRDS(sarima_fit, file = filename)
 }
