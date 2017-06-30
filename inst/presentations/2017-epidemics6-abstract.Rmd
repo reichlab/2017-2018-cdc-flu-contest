@@ -1,0 +1,7 @@
+---
+title: "Comparison of Ensemble Methods for Forecasting Influenza in the United States"
+author: "Nicholas G Reich, Abhinav Tushar, Casey Gibson, Evan L Ray"
+output: html_document
+---
+
+Generally seen as the strongest kind of predictive models available, ensemble-based methodologies combine outputs from a set of models to create a combined prediction for a target of interest. Increasingly, ensemble approaches have been used for forecasts of infectious disease. In the context of influenza outbreaks in the US, our team has published a method for stacking predictive densities to create predictions for seasonal targets, such as the week of onset or peak, or the overall peak incidence observed. Here, we extend this work to compare a diverse set of ensemble methods, including the weighted density ensembles stacking approach, several neural network models, and a set of baseline models that use simple or weighted model averages. We use data from the 1997/1998 through the 2012/2013 influenza seasons in the US to train our ensembles and evaluate their performance in the four most recent influenza seasons. The results of this study and others can help inform policy makers about the optimal approaches to combining forecasts for policy decision making.

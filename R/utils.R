@@ -320,7 +320,7 @@ compute_competition_log_score <- function(bin_log_probs,
 
 #' Get the onset baseline for a combination of region and season
 #'
-#' @param region a string, either "X", "Region k", or "Regionk" where
+#' @param region a string, either "National", "Region k", or "Regionk" where
 #'   k in {1, ..., 10}
 #' @param season a string, in the format "2015/2016"
 #'
@@ -329,8 +329,8 @@ compute_competition_log_score <- function(bin_log_probs,
 #' @export
 get_onset_baseline <- function(region, season = "2015/2016") {
   ## pick baseline
-  ## assumes region is either "X" or "Region k" format
-  reg_string <- ifelse(region=="X", "National", gsub(" ", "", region))
+  ## assumes region is either "National" or "Region k" format
+  reg_string <- ifelse(region=="National", "National", gsub(" ", "", region))
   idx <- which(flu_onset_baselines$region==reg_string &
       flu_onset_baselines$season==season)
   reg_baseline <- flu_onset_baselines[idx, "baseline"]
