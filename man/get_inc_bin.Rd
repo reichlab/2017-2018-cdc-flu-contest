@@ -21,3 +21,4 @@ return the bin name for a given incidence
 \details{
 assumes max inc bin is 13 and bins are 0.1 in size.
 }
+

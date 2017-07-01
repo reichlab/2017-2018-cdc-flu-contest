@@ -15,3 +15,4 @@ log(sum(exp(logx))), but more numerically stable
 \description{
 Calculate log(sum(exp(logx))) in a somewhat numerically stable way.
 }
+

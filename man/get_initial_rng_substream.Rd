@@ -19,3 +19,4 @@ This function DOES NOT set RNG to use rstream with the returned object.
 Because of strange behavior in the rstream package, this function can be
 called only once in a given R session.
 }
+

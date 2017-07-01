@@ -19,3 +19,4 @@ vector of 52 probabilities representing the predictive distribution of peak week
 \description{
 Compute predictive distribution for peak week from KDE fit
 }
+

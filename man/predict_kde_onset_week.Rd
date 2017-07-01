@@ -19,3 +19,4 @@ vector of 53 probabilities representing the predictive distribution of onset wee
 \description{
 Compute predictive distribution for onset_week from KDE fit
 }
+

@@ -43,3 +43,4 @@ Simulate predictive distributions from KCDE/copulas model; suitable for use
 as the \code{simulate_trajectories_function} argument to
 \code{get_log_scores_via_trajectory_simulation}.
 }
+

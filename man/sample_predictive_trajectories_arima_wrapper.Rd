@@ -46,3 +46,4 @@ after the first test season.  It linearly interpolates missing values.
 It handles log transformations and possible seasonal differencing that may
 be done outside of functionality in the forecast package.
 }
+

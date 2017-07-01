@@ -41,3 +41,4 @@ to parallelize or do any RNG in a different R session.  Because of strange
 behavior in the rstream package, this function can be called at most once
 without the rngstream argument in a given R session.
 }
+

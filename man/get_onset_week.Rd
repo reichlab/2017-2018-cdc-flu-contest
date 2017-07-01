@@ -33,3 +33,4 @@ the smallest index i such that every entry of
 \description{
 Utility function to compute onset week based on a trajectory of incidence values
 }
+

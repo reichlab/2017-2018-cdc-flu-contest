@@ -22,3 +22,4 @@ vector of probabilities representing the predictive distribution of NOT LOG peak
 \description{
 Compute predictive distribution for peak week incidence from KDE fit
 }
+

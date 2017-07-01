@@ -536,18 +536,19 @@ get_log_scores_via_direct_simulation <- function(
     
     ## Load data.  The only reason to do this here is to know what the dimensions
     ## of the results data frame should be.
-    data <- read.csv("data-raw/allflu-cleaned.csv", stringsAsFactors = FALSE)
+    data(flu_data)
+    #data <- read.csv("data-raw/allflu-cleaned.csv", stringsAsFactors = FALSE)
     
-    data$time <- as.POSIXct(data$time)
+    flu_data$time <- as.POSIXct(flu_data$time)
     
-    ## subset data to be only the region of interest
-    data <- data[data$region == region,]
+    ## subset flu_data to be only the region of interest
+    flu_data <- flu_data[flu_data$region == region,]
     
     ## data frame to describe predictions
     ## allocate more than enough space up front,
     ## delete extra later
     predictions_df <- make_predictions_dataframe(
-        data = data,
+        data = flu_data,
         model_name = model_name,
         incidence_bin_names = incidence_bin_names,
         first_analysis_time_season_week = 10,
@@ -558,7 +559,7 @@ get_log_scores_via_direct_simulation <- function(
     
     ## get observed quantities related to overall season, for computing log scores
     observed_seasonal_quantities <- get_observed_seasonal_quantities(
-        data = data,
+        data = flu_data,
         season = analysis_time_season,
         first_CDC_season_week = first_analysis_time_season_week,
         last_CDC_season_week = last_analysis_time_season_week + 1,
@@ -570,17 +571,16 @@ get_log_scores_via_direct_simulation <- function(
     )
     
     ## Only do something if there is something to predict in the season that would be held out
-    if(!all(is.na(data[data$season == analysis_time_season, prediction_target_var]))) {
+    if(!all(is.na(flu_data[flu_data$season == analysis_time_season, prediction_target_var]))) {
         ## load KDE fit
         ## NOTE: assumes region is either "X" or "Region k" format
-        reg_string <- ifelse(region=="X", "National", gsub(" ", "", region))
+        reg_string <- ifelse(region=="National", "National", gsub(" ", "", region))
         kde_fit <- readRDS(file = paste0(
             fits_path,
             "kde-",
             reg_string,
-            "-fit-leave-out-",
-            "2011-2012", # always use 2011/2012 season fit -- based on all training data
-#            gsub("/", "-", analysis_time_season),
+            "-fit-prospective-",
+            gsub("/", "-", analysis_time_season),
             ".rds"))
 
         ### calculate log score for predictions that don't change depending on time of year
@@ -639,7 +639,7 @@ get_log_scores_via_direct_simulation <- function(
         
         
         ## figure out weeks for looping
-        last_analysis_time_season_week_in_data <- max(data$season_week[data$season == analysis_time_season])
+        last_analysis_time_season_week_in_data <- max(flu_data$season_week[flu_data$season == analysis_time_season])
         time_seq <- seq(from = first_analysis_time_season_week, 
                         to = min(last_analysis_time_season_week, last_analysis_time_season_week_in_data) - 1)
         
@@ -648,13 +648,13 @@ get_log_scores_via_direct_simulation <- function(
         for(analysis_time_season_week in time_seq) {
 
             ## calculate current time 
-            analysis_time_ind <- which(data$season == analysis_time_season &
-                                           data$season_week == analysis_time_season_week)
+            analysis_time_ind <- which(flu_data$season == analysis_time_season &
+                                           flu_data$season_week == analysis_time_season_week)
             
             ## Predictions for incidence in an individual week at prediction horizon ph = 1, ..., 4
             for(ph in 1:4) {
                 ## get observed value/bin
-                observed_ph_inc <- data[analysis_time_ind + ph, prediction_target_var]
+                observed_ph_inc <- flu_data[analysis_time_ind + ph, prediction_target_var]
                 observed_ph_inc_bin <- get_inc_bin(observed_ph_inc, return_character = TRUE)
                 
                 if(!is.na(observed_ph_inc)) {
@@ -704,6 +704,6 @@ get_log_scores_via_direct_simulation <- function(
     season_str <- gsub("/", "-", analysis_time_season)
     saveRDS(predictions_df,
             file = paste0(prediction_save_path,
-                          model_name, "-", region_str, "-", season_str, "-loso-predictions.rds"))
+                          model_name, "-", region_str, "-", season_str, "-prospective-predictions.rds"))
 }
 

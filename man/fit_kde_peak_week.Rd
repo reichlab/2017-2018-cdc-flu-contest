@@ -15,3 +15,4 @@ a fit from density(), along with points to evaluate at
 \description{
 Estimate KDE for peak week
 }
+

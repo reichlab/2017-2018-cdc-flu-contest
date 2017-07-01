@@ -4,13 +4,11 @@
 \alias{fit_region_sarima}
 \title{Estimate SARIMA model using data up to but not including first_test_season}
 \usage{
-fit_region_sarima(data, reg_num, first_test_season, d = NA, D = NA,
+fit_region_sarima(data, region, first_test_season, d = NA, D = NA,
   seasonal_difference = TRUE, transformation = "none", path)
 }
 \arguments{
 \item{data}{regional dataset with structure like regionflu-cleaned}
-
-\item{reg_num}{region number for estimation}
 
 \item{first_test_season}{string indicating first test season}
 
@@ -25,6 +23,8 @@ to auto.arima?}
 "box-cox", "log", or "none"}
 
 \item{path}{path in which to save files}
+
+\item{reg_num}{region number for estimation}
 }
 \value{
 NULL just saves files
@@ -32,3 +32,4 @@ NULL just saves files
 \description{
 Estimate SARIMA model using data up to but not including first_test_season
 }
+

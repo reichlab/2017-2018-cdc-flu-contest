@@ -15,3 +15,4 @@ log(exp(logx) - exp(logy)), but more numerically stable
 \description{
 Calculate log(exp(logx) - exp(logy)) in a somewhat numerically stable way.
 }
+

@@ -31,3 +31,4 @@ model weights
 This function uses either a grid search or the "degenerate EM" algorithm
 outlined at http://www.cs.cmu.edu/~roni/11761-f16/Presentations/degenerateEM.pdf
 }
+

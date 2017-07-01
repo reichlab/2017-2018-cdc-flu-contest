@@ -4,16 +4,16 @@
 \alias{fit_region_kdes}
 \title{Fits and saves KDE models for all region-year combinations}
 \usage{
-fit_region_kdes(data, region, first_test_year, first_test_week, path)
+fit_region_kdes(data, region, first_fit_year, first_fit_week, path)
 }
 \arguments{
 \item{data}{cleaned usflu dataset}
 
 \item{region}{character string identifying a region}
 
-\item{first_test_year}{along with first_test_week, defines the first time at which data is left out}
+\item{first_fit_year}{along with first_fit_week, defines the first time for which a fit is made}
 
-\item{first_test_week}{}
+\item{first_fit_week}{see first_fit_week, week defined on calendar scale}
 
 \item{path}{filepath for saving}
 }
@@ -23,3 +23,9 @@ nothing, just saving files
 \description{
 Fits and saves KDE models for all region-year combinations
 }
+\details{
+This function call assumes that the data object contains no data 
+from the testing phase. Starting with first_fit_year/first_fit_week, a 
+prospective fit will be made for each season until the end of the dataset.
+}
+

@@ -7,7 +7,7 @@
 get_onset_baseline(region, season = "2015/2016")
 }
 \arguments{
-\item{region}{a string, either "X", "Region k", or "Regionk" where
+\item{region}{a string, either "National", "Region k", or "Regionk" where
 k in {1, ..., 10}}
 
 \item{season}{a string, in the format "2015/2016"}
@@ -18,3 +18,4 @@ baseline value for determining season onset
 \description{
 Get the onset baseline for a combination of region and season
 }
+
