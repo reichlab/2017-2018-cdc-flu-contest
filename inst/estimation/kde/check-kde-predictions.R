@@ -3,10 +3,11 @@ library(ggplot2)
 library(dplyr)
 
 region_strings <- c("National", paste0("Region", 1:10))
+season_to_check <- "2012-2013"
 
-pdf("inst/estimation/kde/check-kde-predictions.pdf", width=10)
+pdf(paste0("inst/estimation/kde/check-kde-predictions", season_to_check, ".pdf"), width=10)
 for(reg in region_strings) {
-    fname <- paste0("inst/estimation/prospective-predictions/kde-", reg, "-prospective-predictions.rds")
+    fname <- paste0("inst/estimation/prospective-predictions/kde-", reg, "-", season_to_check, "-prospective-predictions.rds")
     tmp <- readRDS(fname)
     tmp <- as_data_frame(tmp) %>% 
         gather(key=metric, value=log_score, -c(model, 
