@@ -3,24 +3,37 @@ library(ggplot2)
 library(dplyr)
 
 region_strings <- c("National", paste0("Region", 1:10))
-season_to_check <- "2012-2013"
+seasons_to_check <- paste0(2000:2013, "-", 2001:2014)
 
-pdf(paste0("inst/estimation/kde/check-kde-predictions", season_to_check, ".pdf"), width=10)
+pdf("inst/estimation/kde/check-kde-predictions.pdf", width=10)
 for(reg in region_strings) {
-    fname <- paste0("inst/estimation/prospective-predictions/kde-", reg, "-", season_to_check, "-prospective-predictions.rds")
-    tmp <- readRDS(fname)
-    tmp <- as_data_frame(tmp) %>% 
-        gather(key=metric, value=log_score, -c(model, 
-                                               starts_with("prediction_week_ph"), 
-                                               starts_with("analysis_time"))) %>%
-        ## exclude pandemic season
-        filter(analysis_time_season != "2009/2010")
-    
-    p <- ggplot(tmp, aes(x=analysis_time_season_week, y=log_score)) +
-        geom_line(aes(color=analysis_time_season)) +
-        facet_grid(.~metric) +
+    # reg = region_strings[1]
+    for(season in seasons_to_check) {
+        fname <- paste0("inst/estimation/prospective-predictions/kde-", reg, "-", season, "-prospective-predictions.rds")
+        tmp <- readRDS(fname)
+        tmp1 <- as_data_frame(tmp) %>% 
+            gather(
+                key=metric, value=log_score, 
+                -c(model, 
+                    starts_with("prediction_week_ph"), 
+                    starts_with("analysis_time"),
+                    ends_with("log_prob"),
+                    contains("competition"))
+            ) %>%
+            ## exclude pandemic season
+            filter(analysis_time_season != "2009/2010")
+        if(exists("tmp2")) {
+            tmp2 <- rbind(tmp2, tmp1)
+        } else {
+            tmp2 <- tmp1
+        }
+    }
+    p <- ggplot(tmp2, aes(x=analysis_time_season_week, y=log_score)) +
+        geom_line(aes(color=factor(analysis_time_season))) +
+        facet_grid(.~factor(metric)) +
         geom_smooth(se=FALSE, color="black") +
-        ylim(-10, 0)
+        ylim(-10, 0) + ggtitle(reg)
     print(p)
+    rm(tmp2)
 }
 dev.off()
