@@ -9,7 +9,7 @@ pdf("inst/estimation/kde/check-kde-predictions.pdf", width=10)
 for(reg in region_strings) {
     # reg = region_strings[1]
     for(season in seasons_to_check) {
-        fname <- paste0("inst/estimation/prospective-predictions/kde-", reg, "-", season, "-prospective-predictions.rds")
+        fname <- paste0("inst/prospective-predictions/kde-", reg, "-", season, "-prospective-predictions.rds")
         tmp <- readRDS(fname)
         tmp1 <- as_data_frame(tmp) %>% 
             gather(
