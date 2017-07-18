@@ -1,3 +1,70 @@
+
+#' Download and preprocess the latest CDC flu data, both national and regional
+#'
+#' @return data frame with latest flu data, preprocessed
+download_and_preprocess_flu_data <- function() {
+  ### The following lines can be used to manually fix issue with lack of https in get_flu_data, until the package is updated
+  # debug(get_flu_data)
+  # unlink(out_file)
+  # tmp <- POST("https://gis.cdc.gov/grasp/fluview/FluViewPhase2CustomDownload.ashx",
+  #   body = params, write_disk(out_file))
+
+  regionflu <- get_flu_data("hhs", sub_region=1:10, data_source="ilinet", years=1997:2016)
+  usflu <- get_flu_data("national", sub_region=NA, data_source="ilinet", years=1997:2016)
+
+  ## make AGE cols in usflu integer data type
+  cols <- grepl('^AGE', colnames(regionflu))
+  regionflu[,cols] <- sapply(regionflu[,cols], as.integer)
+  cols <- grepl('^AGE', colnames(usflu))
+  usflu[,cols] <- sapply(usflu[,cols], as.integer)
+
+
+  data <- bind_rows(regionflu, usflu)
+
+  data <- transmute(data,
+    region.type = `REGION TYPE`,
+    region = REGION,
+    year = YEAR,
+    week = WEEK,
+    time = as.POSIXct(MMWRweek2Date(YEAR, WEEK)),
+    weighted_ili = as.numeric(`% WEIGHTED ILI`))
+
+  ## set zeroes to NAs
+  data[which(data$weighted_ili==0),"weighted_ili"] <- NA
+
+  ## Add time_index column: the number of days since some origin date (1970-1-1 in this case).
+  ## The origin is arbitrary.
+  data$time_index <- as.integer(data$time -  ymd(paste("1970", "01", "01", sep = "-")))
+
+  ## Season column: for example, weeks of 2010 up through and including week 30 get season 2009/2010;
+  ## weeks after week 30 get season 2010/2011
+  ## I am not sure where I got that the season as defined as starting on MMWR week 30 from...
+  data$season <- ifelse(
+    data$week <= 30,
+    paste0(data$year - 1, "/", data$year),
+    paste0(data$year, "/", data$year + 1)
+  )
+
+  ## Season week column: week number within season
+  ## weeks after week 30 get season_week = week - 30
+  ## weeks before week 30 get season_week = week + (number of weeks in previous year) - 30
+  ## This computation relies on the start_date function in package MMWRweek,
+  ## which is not exported from that package's namespace!!!
+  data$season_week <- ifelse(
+    data$week <= 30,
+    data$week + MMWRweek(MMWRweek:::start_date(data$year) - 1)$MMWRweek - 30,
+    data$week - 30
+  )
+
+  data$time <- as.POSIXct(data$time)
+
+  data <- as.data.frame(data)
+
+  return(data)
+}
+
+
+
 #' Utility function to compute onset week based on a trajectory of incidence values
 #'
 #' @param incidence_trajectory a numeric vector with incidence for each time
@@ -756,6 +823,287 @@ get_log_scores_via_trajectory_simulation <- function(
 }
 
 
+get_submission_via_trajectory_simulation <- function(
+    data,
+    analysis_time_season,
+    first_analysis_time_season_week = 10, # == week 40 of year
+    last_analysis_time_season_week = 41, # analysis for 33-week season, consistent with flu competition -- at week 41, we do prediction for a horizon of one week ahead
+    prediction_target_var,
+    incidence_bins,
+    incidence_bin_names,
+    n_trajectory_sims,
+    simulate_trajectories_function,
+    simulate_trajectories_params,
+    model_name) {
+    all_regions <- c("X", paste0("Region ", 1:10))
+    return(
+        rbind.fill(lapply(all_regions, function(region) {
+            get_submission_one_region_via_trajectory_simulation(
+                data = data,
+                analysis_time_season = analysis_time_season,
+                first_analysis_time_season_week = first_analysis_time_season_week,
+                last_analysis_time_season_week = last_analysis_time_season_week,
+                region = region,
+                prediction_target_var = prediction_target_var,
+                incidence_bins = incidence_bins,
+                incidence_bin_names = incidence_bin_names,
+                n_trajectory_sims = n_trajectory_sims,
+                simulate_trajectories_function = simulate_trajectories_function,
+                simulate_trajectories_params = simulate_trajectories_params,
+                model_name
+            )
+        }))
+    )
+}
+
+
+get_submission_one_region_via_trajectory_simulation <- function(
+    data,
+    analysis_time_season = "2016/2017",
+    first_analysis_time_season_week = 10, # == week 40 of year
+    last_analysis_time_season_week = 41, # analysis for 33-week season, consistent with flu competition -- at week 41, we do prediction for a horizon of one week ahead
+    region,
+    prediction_target_var,
+    incidence_bins,
+    incidence_bin_names,
+    n_trajectory_sims,
+    simulate_trajectories_function,
+    simulate_trajectories_params,
+    model_name
+) {
+    region_results <- read.csv("data-raw/region-prediction-template.csv")
+
+    region_str <- ifelse(identical(region, "X"), "US National", paste0("HHS ", region))
+    region_results$Location <- region_str
+
+    ## subset data to be only the region-specific data
+    data <- data[data$region == region,]
+
+    analysis_time_season_week <- data$season_week[nrow(data)]
+    analysis_time_ind <- nrow(data)
+
+    ## simulate n_trajectory_sims trajectories
+    max_prediction_horizon <- max(4L,
+        last_analysis_time_season_week + 1 - analysis_time_season_week)
+
+    trajectory_samples <- simulate_trajectories_function(
+        n_sims = n_trajectory_sims,
+        max_prediction_horizon = max_prediction_horizon,
+        data = data[seq_len(analysis_time_ind), , drop = FALSE],
+        region = region,
+        analysis_time_season = analysis_time_season,
+        analysis_time_season_week = analysis_time_season_week,
+        params = simulate_trajectories_params
+    )
+
+    ## Round to nearest 0.1 -- they do this in competition
+    ## I'm not using R's round() function because I want
+    ## 0.05 -> 0.1
+    ## (...?  We should see how they round?  Maybe this never comes up?
+    ## I have a feeling I'm fretting over a probability 0 event.)
+    trajectory_samples <- apply(
+        trajectory_samples,
+        c(1, 2),
+        function(inc_val) {
+            if(is.na(inc_val)) {
+                return(inc_val)
+            } else {
+                floor_val <- floor(inc_val * 10) / 10
+                if(inc_val >= floor_val + 0.05) {
+                    return(floor_val + 0.1)
+                } else {
+                    return(floor_val)
+                }
+            }
+        }
+    )
+
+    ## get indices in trajectory samples with NA values that affect
+    ## estimation of seasonal quantities
+    sample_inds_with_na <- apply(
+        trajectory_samples[,
+            seq_len(last_analysis_time_season_week + 1 - analysis_time_season_week),
+            drop = FALSE],
+        1,
+        function(x) any(is.na(x)))
+
+    ## Predictions for things about the whole season
+    if(all(sample_inds_with_na)) {
+        stop("Error: NAs in all simulated trajectories, unable to predict seasonal quantities")
+    } else {
+        ## subset to sampled trajectories that are usable/do not have NAs
+        subset_trajectory_samples <- trajectory_samples[!sample_inds_with_na, ]
+
+        ## Augment trajectory samples with previous observed incidence values
+        ## This is where we should be adding in some boostrapping to account
+        ## for backfill.
+        first_season_obs_ind <- min(which(data$season == analysis_time_season))
+        subset_trajectory_samples <- cbind(
+            matrix(
+                rep(data[seq(from = first_season_obs_ind, to = analysis_time_ind), prediction_target_var], each = n_trajectory_sims),
+                nrow = n_trajectory_sims
+            ),
+            subset_trajectory_samples
+        )
+
+        ## If first observation for the season was not at season week 1,
+        ## augment with leading NAs
+        first_season_obs_week <- data$season_week[first_season_obs_ind]
+        if(first_season_obs_week != 1) {
+            subset_trajectory_samples <- cbind(
+                matrix(NA, nrow = n_trajectory_sims, ncol = first_season_obs_week - 1),
+                subset_trajectory_samples
+            )
+        }
+
+        ## values before the first analysis time week are NA so that
+        ## onset and peak calculations only look at data within the CDC's definition
+        ## of the flu season for purposes of the competition
+        subset_trajectory_samples[,
+            seq(from = 1, to = first_analysis_time_season_week - 1)] <- NA
+
+        ## Make a plot of trajectories
+        # samples_long <- cbind(
+        #   matrix(
+        #     rep(data[seq(from = season_start_ind, to = analysis_time_ind), prediction_target_var], each = n_trajectory_sims),
+        #     nrow = n_trajectory_sims
+        #   ),
+        #   trajectory_samples) %>%
+        #   as.data.frame() %>%
+        #   `colnames<-`(seq(from = 1, length = ncol(trajectory_samples) + analysis_time_ind - season_start_ind + 1)) %>%
+        #   mutate(traj_ind = seq_len(nrow(trajectory_samples))) %>%
+        #   gather_("week", "weighted_ili", as.character(seq(from = 1, length = ncol(trajectory_samples) + analysis_time_ind - season_start_ind + 1)))
+        #
+        # ggplot() +
+        #   geom_line(aes(x = as.numeric(week), y = weighted_ili, group = traj_ind), alpha = 0.3, data = samples_long) +
+        #   geom_line() +
+        #   theme_bw()
+
+
+        ## Convert to binned values
+        binned_subset_trajectory_samples <-
+            get_inc_bin(subset_trajectory_samples,
+                return_character = FALSE)
+
+        ## Get onset week for each simulated trajectory
+        onset_week_by_sim_ind <-
+            apply(subset_trajectory_samples, 1, function(trajectory) {
+                get_onset_week(
+                    incidence_trajectory = trajectory,
+                    baseline =
+                        get_onset_baseline(region = region, season = analysis_time_season),
+                    onset_length = 3L,
+                    first_season_week = 31,
+                    weeks_in_first_season_year = weeks_in_first_season_year
+                )
+            })
+
+        ## Get peak incidence for each simulated trajectory
+        peak_inc_bin_by_sim_ind <-
+            apply(binned_subset_trajectory_samples, 1, function(trajectory) {
+                max(trajectory, na.rm = TRUE)
+            })
+
+        ## get peak week by sim ind
+        ## note that some sim inds may have more than 1 peak week...
+        peak_weeks_by_sim_ind <- unlist(lapply(
+            seq_len(n_trajectory_sims),
+            function(sim_ind) {
+                bin_val <- peak_inc_bin_by_sim_ind[sim_ind]
+                peak_season_weeks <- which(
+                    binned_subset_trajectory_samples[sim_ind, ] == bin_val)
+                return(peak_season_weeks)
+            }
+        ))
+
+        ## Get bin probabilities and add to region template
+        onset_week_bins <- c(as.character(10:42), "none")
+        onset_bin_log_probs <- log(sapply(
+            onset_week_bins,
+            function(bin_name) {
+                sum(onset_week_by_sim_ind == bin_name)
+            })) -
+            log(length(onset_week_by_sim_ind))
+        onset_bin_log_probs <- onset_bin_log_probs - logspace_sum(onset_bin_log_probs)
+        region_results[
+            region_results$Target == "Season onset" & region_results$Type == "Bin",
+            "Value"] <- exp(onset_bin_log_probs)
+        if(onset_bin_log_probs[length(onset_bin_log_probs)] >= 0.5) {
+            region_results[
+              region_results$Target == "Season onset" & region_results$Type == "Point",
+              "Value"] <- NA
+        } else {
+            region_results[
+                region_results$Target == "Season onset" & region_results$Type == "Point",
+                "Value"] <- season_week_to_year_week(
+                    floor(median(as.numeric(onset_week_by_sim_ind), na.rm = TRUE)),
+                    first_season_week = 31,
+                    weeks_in_first_season_year = 52)
+        }
+
+        peak_week_bins <- as.character(10:42)
+        peak_week_bin_log_probs <- log(sapply(
+            peak_week_bins,
+            function(bin_name) {
+                sum(peak_weeks_by_sim_ind == bin_name)
+            })) -
+            log(length(peak_weeks_by_sim_ind))
+        peak_week_bin_log_probs <- peak_week_bin_log_probs - logspace_sum(peak_week_bin_log_probs)
+        names(peak_week_bin_log_probs) <- as.character(peak_week_bins)
+        region_results[
+            region_results$Target == "Season peak week" & region_results$Type == "Bin",
+            "Value"] <- exp(peak_week_bin_log_probs)
+        region_results[
+            region_results$Target == "Season peak week" & region_results$Type == "Point",
+            "Value"] <- season_week_to_year_week(
+                floor(median(as.numeric(peak_weeks_by_sim_ind))),
+                first_season_week = 31,
+                weeks_in_first_season_year = 52)
+
+
+        peak_inc_bin_log_probs <- log(sapply(
+            incidence_bin_names,
+            function(bin_name) {
+                sum(peak_inc_bin_by_sim_ind == as.numeric(bin_name))
+            })) -
+            log(length(peak_inc_bin_by_sim_ind))
+        peak_inc_bin_log_probs <- peak_inc_bin_log_probs - logspace_sum(peak_inc_bin_log_probs)
+        region_results[
+            region_results$Target == "Season peak percentage" & region_results$Type == "Bin",
+            "Value"] <- exp(peak_inc_bin_log_probs)
+        region_results[
+            region_results$Target == "Season peak percentage" & region_results$Type == "Point",
+            "Value"] <- median(peak_inc_bin_by_sim_ind)
+    }
+
+    ## Predictions for incidence in an individual week at prediction horizon ph = 1, ..., 4
+    for(ph in 1:4) {
+        sample_inds_with_na <- is.na(trajectory_samples[, ph])
+
+        ## get sampled incidence values at prediction horizon that are usable/not NAs
+        ph_inc_by_sim_ind <- trajectory_samples[!sample_inds_with_na, ph]
+        ph_inc_bin_by_sim_ind <- get_inc_bin(ph_inc_by_sim_ind, return_character = TRUE)
+
+        ## get bin probabilities and store in regional template
+        ph_inc_bin_log_probs <- log(sapply(
+            incidence_bin_names,
+            function(bin_name) {
+                sum(ph_inc_bin_by_sim_ind == bin_name)
+            })) -
+            log(length(ph_inc_bin_by_sim_ind))
+        ph_inc_bin_log_probs <- ph_inc_bin_log_probs - logspace_sum(ph_inc_bin_log_probs)
+        region_results[
+            region_results$Target == paste0(ph, " wk ahead") & region_results$Type == "Bin",
+            "Value"] <- exp(ph_inc_bin_log_probs)
+        region_results[
+            region_results$Target == paste0(ph, " wk ahead") & region_results$Type == "Point",
+            "Value"] <- median(ph_inc_by_sim_ind)
+    } # ph loop
+
+    return(region_results)
+}
+
+
 #' return the bin name for a given incidence
 #'
 #' @param inc numeric incidence level
@@ -793,6 +1141,110 @@ calc_median_from_binned_probs <- function(probs) {
     cumprob <- cumsum(probs)
     median_idx <- min(which(cumprob>=0.5))
     as.numeric(names(probs)[median_idx])
+}
+
+
+#' Make plots of prediction submissions for flu contest: so far, seasonal targets only
+#'
+#' @param preds_save_file path to a file with predictions in csv submission format
+#' @param plots_save_file path to a pdf file where plots should go
+#' @param data data observed so far this season
+make_predictions_plots <- function(
+  preds_save_file,
+  plots_save_file,
+  data
+) {
+  require("grid")
+  require("ggplot2")
+
+  predictions <- read.csv(preds_save_file)
+  preds_region_map <- data.frame(
+    internal_region = c("X", paste0("Region ", 1:10)),
+    preds_region = c("US National", paste0("HHS Region ", 1:10))
+  )
+
+  current_season <- tail(data$season, 1)
+  region <- "Region 1"
+
+  pdf(plots_save_file)
+
+  for(region in unique(data$region)) {
+    preds_region <- preds_region_map$preds_region[preds_region_map$internal_region == region]
+
+    ## Observed incidence
+    p_obs <- ggplot(data[data$region == region & data$season == current_season, ]) +
+      expand_limits(x = c(0, 42), y = c(0, 13)) +
+      geom_line(aes(x = season_week, y = weighted_ili)) +
+      geom_hline(yintercept = get_onset_baseline(region, season = "2016/2017"), colour = "red") +
+      ggtitle("Observed incidence") +
+      theme_bw()
+
+    ## Onset
+    reduced_preds <- predictions[predictions$Location == preds_region & predictions$Target == "Season onset" & predictions$Type == "Bin", ] %>%
+      mutate(
+        season_week = year_week_to_season_week(as.numeric(as.character(Bin_start_incl)), 2016)
+      )
+    point_pred <- predictions[predictions$Location == preds_region & predictions$Target == "Season onset" & predictions$Type == "Point", , drop = FALSE] %>%
+      mutate(
+        season_week = year_week_to_season_week(Value, 2016)
+      )
+    p_onset <- ggplot(reduced_preds) +
+      geom_line(aes(x = season_week, y = Value)) +
+      geom_vline(xintercept = point_pred$season_week, colour = "red") +
+      expand_limits(x = c(0, 42)) +
+      ylab("predicted probability of onset") +
+      ggtitle("Onset") +
+      theme_bw()
+
+
+    ## Peak Timing
+    reduced_preds <- predictions[predictions$Location == preds_region & predictions$Target == "Season peak week" & predictions$Type == "Bin", ] %>%
+      mutate(
+        season_week = year_week_to_season_week(as.numeric(as.character(Bin_start_incl)), 2016)
+      )
+    point_pred <- predictions[predictions$Location == preds_region & predictions$Target == "Season peak week" & predictions$Type == "Point", , drop = FALSE] %>%
+      mutate(
+        season_week = year_week_to_season_week(Value, 2016)
+      )
+    p_peak_timing <- ggplot(reduced_preds) +
+      geom_line(aes(x = season_week, y = Value)) +
+      geom_vline(xintercept = point_pred$season_week, colour = "red") +
+      expand_limits(x = c(0, 42)) +
+      ylab("predicted probability of peak") +
+      ggtitle("Peak timing") +
+      theme_bw()
+
+
+    ## Peak Incidence
+    reduced_preds <- predictions[predictions$Location == preds_region & predictions$Target == "Season peak percentage" & predictions$Type == "Bin", ] %>%
+      mutate(inc_bin = as.numeric(as.character(Bin_start_incl)))
+    point_pred <- predictions[predictions$Location == preds_region & predictions$Target == "Season peak percentage" & predictions$Type == "Point", , drop = FALSE] %>%
+      mutate(inc_bin = Value)
+    p_peak_inc <- ggplot(reduced_preds) +
+      geom_line(aes(x = inc_bin, y = Value)) +
+      geom_vline(xintercept = point_pred$inc_bin, colour = "red", data) +
+      expand_limits(x = c(0, 13)) +
+      ylab("predicted probability of peak incidence") +
+      coord_flip() +
+      ggtitle("Peak incidence") +
+      theme_bw()
+
+    grid.newpage()
+    pushViewport(viewport(layout =
+        grid.layout(nrow = 4,
+          ncol = 2,
+          heights = unit(c(2, 1, 1, 1), c("lines", "null", "null", "null")))))
+
+    grid.text(preds_region,
+      gp = gpar(fontsize = 20),
+      vp = viewport(layout.pos.col = 1:2, layout.pos.row = 1))
+    print(p_onset, vp = viewport(layout.pos.col = 1, layout.pos.row = 2))
+    print(p_obs, vp = viewport(layout.pos.col = 1, layout.pos.row = 3))
+    print(p_peak_timing, vp = viewport(layout.pos.col = 1, layout.pos.row = 4))
+    print(p_peak_inc, vp = viewport(layout.pos.col = 2, layout.pos.row = 3))
+  }
+
+  dev.off()
 }
 
 
