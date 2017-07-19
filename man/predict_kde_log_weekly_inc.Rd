@@ -24,4 +24,3 @@ matrix of probabilities representing the predictive distribution of NOT LOG scal
 \description{
 Compute predictive distribution for weekly incidence from GAM fit
 }
-

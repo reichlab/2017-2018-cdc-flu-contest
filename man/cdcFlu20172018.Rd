@@ -4,6 +4,7 @@
 \name{cdcFlu20172018}
 \alias{cdcFlu20172018}
 \alias{cdcFlu20172018-package}
+\alias{cdcFlu20172018-package}
 \title{cdcFlu20172018 - Code and submissions for 2017-2018 CDC flu prediction contest}
 \description{
 Code and submissions for 2017-2018 CDC flu prediction contest
@@ -11,4 +12,3 @@ Code and submissions for 2017-2018 CDC flu prediction contest
 \author{
 Evan Ray <elray@umass.edu>
 }
-

@@ -19,4 +19,3 @@ data frame with weighted combination of predictions
 \description{
 Compute a weighted combination of prediction results
 }
-

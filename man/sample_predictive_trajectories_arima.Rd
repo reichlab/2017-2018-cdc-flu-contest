@@ -31,4 +31,3 @@ This is directly taken from the forecast.Arima function from the forecast packag
 but I've forced bootstrap = TRUE and return the simulated trajectories which were
 not returned in the original function definition.
 }
-

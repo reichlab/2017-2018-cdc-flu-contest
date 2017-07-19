@@ -18,4 +18,3 @@ baseline value for determining season onset
 \description{
 Get the onset baseline for a combination of region and season
 }
-

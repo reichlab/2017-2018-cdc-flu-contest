@@ -17,4 +17,3 @@ log(apply(exp(logX), 1, sum)), but more numerically stable
 Calculate logspace summation of matrix rows in a somewhat numerically stable
 way.
 }
-

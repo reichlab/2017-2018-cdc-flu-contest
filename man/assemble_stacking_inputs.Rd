@@ -41,4 +41,3 @@ a data frame with covariates that model weights depend on
 \description{
 Assemble a data frame of inputs to stacking
 }
-

@@ -28,4 +28,3 @@ This function call assumes that the data object contains no data
 from the testing phase. Starting with first_fit_year/first_fit_week, a 
 prospective fit will be made for each season until the end of the dataset.
 }
-

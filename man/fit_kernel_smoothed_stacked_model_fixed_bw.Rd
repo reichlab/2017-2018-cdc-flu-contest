@@ -28,4 +28,3 @@ http://www.cs.cmu.edu/~roni/11761-f16/Presentations/degenerateEM.pdf,
 but modified in a way that is ad hoc but I think could be justified
 to use kernel-weighted observations.
 }
-

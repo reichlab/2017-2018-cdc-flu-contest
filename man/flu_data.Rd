@@ -16,4 +16,3 @@ flu_data
 A dataset of public influenza data from the US CDC.
 }
 \keyword{datasets}
-

@@ -18,4 +18,3 @@ log(exp(logX)[, 1] - exp(logX)[, 2]), but more numerically stable
 Calculate logspace difference of matrix rows in a somewhat numerically stable
 way.
 }
-

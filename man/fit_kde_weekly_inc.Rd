@@ -15,4 +15,3 @@ a mgcv smooth spline fit
 \description{
 Fit a GAM for weekly incidence
 }
-

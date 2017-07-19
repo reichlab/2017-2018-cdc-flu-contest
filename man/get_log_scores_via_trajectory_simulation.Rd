@@ -75,4 +75,3 @@ in the competition (adding probabilities from adjacent bins) for each
 prediction target, as well as the log of the probability assigned to each
 bin.
 }
-

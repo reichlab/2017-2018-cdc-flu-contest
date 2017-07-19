@@ -15,4 +15,3 @@ a numeric value
 \description{
 Calcluation of median value from binned probability distribution
 }
-

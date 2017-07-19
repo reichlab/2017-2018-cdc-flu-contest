@@ -44,4 +44,3 @@ a list with four entries:
 \description{
 Compute season onset, peak week, and peak incidence
 }
-

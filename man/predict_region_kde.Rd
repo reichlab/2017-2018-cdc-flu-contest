@@ -28,4 +28,3 @@ The function follows this outline
       \item{Save object with comparisons}
 }
 }
-
