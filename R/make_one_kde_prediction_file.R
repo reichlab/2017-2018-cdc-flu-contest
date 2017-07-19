@@ -1,7 +1,3 @@
-## function to make current predictions from KDE
-## Nicholas Reich
-## started: November 2016
-
 #' Wrapper for prediction of a single time-point from KDE fits
 #'
 #' @param path filepath to fitted models
