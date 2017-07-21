@@ -22,12 +22,15 @@ registerDoMC(11)
 foreach(reg=region_strings) %dopar% {
 
   ## fit models on training seasons, using only prospective data, not LOSO
+  ## this function call saves a set of .rds files that contain the list defining a "KDE fit" 
+  ## one fit for each (prospective season, region) pair
   
   # reg = region_strings[1]
   fit_region_kdes(flu_data, 
                   region=reg,
-                  first_fit_year = 2000,
+                  first_fit_year = 2010,
                   first_fit_week = 31,
+                  last_fit_year = 2016,
                   path = fit_path)
   
   ## make leave-one-season-out predictions for training seasons
@@ -58,7 +61,7 @@ foreach(reg=region_strings) %dopar% {
       n_sims = 100000,
       model_name = "kde",
       fits_path = fit_path,
-      prediction_save_path = "inst/prospective-predictions/"
+      prediction_save_path = "inst/estimation/kde/checking/"
     )
   }
 }
