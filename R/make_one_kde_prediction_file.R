@@ -18,9 +18,9 @@ make_one_kde_prediction_file <- function(fits_path, save_path, season, season_we
     cdc_region_strings <- c("US National", paste("HHS Region", 1:10))
     
     epiweek <- (season_week-1+30)%%52 + 1
-    epiweek_year <- ifelse(epiweek<35,
-                           substr(season, 1, 4),
-                           substr(season, 6,9))
+    epiweek_year <- ifelse(epiweek<35, ## if epiweek is low, we are in end of season
+                           substr(season, 6, 9), 
+                           substr(season, 1, 4))
     fname <- paste0(save_path,"/EW", epiweek,"-", epiweek_year, "-ReichLab_kde.csv")
     
     for(i in 1:length(region_strings)) {
