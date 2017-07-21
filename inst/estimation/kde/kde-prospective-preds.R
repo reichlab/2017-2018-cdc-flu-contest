@@ -4,7 +4,7 @@
 
 library(cdcFlu20172018)
 
-n_sims <- 10000
+n_sims <- 10
 prospective_seasons <- paste0(2010:2016, "/", 2011:2017)
 season_weeks <- 13:42
 
@@ -19,9 +19,11 @@ season_weeks <- 13:42
 
 for(season in prospective_seasons){
   for(season_week in season_weeks) {
-    make_one_kde_prediction_file(path = "inst/prospective-predictions/kde/",
+    make_one_kde_prediction_file(save_path = "inst/prospective-predictions/kde/",
+                                 fits_path = "inst/estimation/kde/fits/",
                                  season = season,
                                  season_week = season_week,
                                  n_sim = n_sims)
   }
 }
+

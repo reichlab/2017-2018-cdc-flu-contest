@@ -1,13 +1,15 @@
 #' Wrapper for prediction of a single time-point from KDE fits
 #'
-#' @param path filepath to fitted models
+#' @param fits_path filepath to fitted models
+#' @param save_path filepath to save models in
 #' @param season character string of season for current fit, in format "XXXX/YYYY"
 #' @param season_week numeric season week of first week for which predictions are desired
 #' @param n_sim number of simulations to run for predictive distributions
 #'
 #' @return NULL just saves a file
+#' @export
 #'
-make_one_kde_prediction_file <- function(path, season, season_week, n_sim){
+make_one_kde_prediction_file <- function(fits_path, save_path, season, season_week, n_sim){
     ## set globals for incidence bins and names
     inc_bins <- c(0, seq(from = .05, to = 12.95, by = 0.1), Inf)
     incidence_bin_names <- as.character(seq(from = 0, to = 13, by = 0.1))
@@ -16,17 +18,20 @@ make_one_kde_prediction_file <- function(path, season, season_week, n_sim){
     cdc_region_strings <- c("US National", paste("HHS Region", 1:10))
     
     epiweek <- (season_week-1+30)%%52 + 1
-    fname <- paste0(path,"/EW", epiweek, "-KOTkde-", Sys.Date(), ".csv")
+    epiweek_year <- ifelse(epiweek<35,
+                           substr(season, 1, 4),
+                           substr(season, 6,9))
+    fname <- paste0(save_path,"/EW", epiweek,"-", epiweek_year, "-ReichLab_kde.csv")
     
     for(i in 1:length(region_strings)) {
         region <- region_strings[i]
         cdc_region <- cdc_region_strings[i]
         ## load KDE fit
         kde_fit <- readRDS(file = paste0(
-            path,
+            fits_path,
             "kde-",
             region,
-            "-fit-leave-out-",
+            "-fit-prospective-",
             gsub("/", "-", season),
             ".rds"))
         tmp <- make_region_prediction(kde_fit, 
