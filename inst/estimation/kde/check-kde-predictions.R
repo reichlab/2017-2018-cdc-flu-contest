@@ -3,7 +3,7 @@ library(ggplot2)
 library(dplyr)
 
 region_strings <- c("National", paste0("Region", 1:10))
-seasons_to_check <- paste0(2000:2013, "-", 2001:2014)
+seasons_to_check <- paste0(2010:2015, "-", 2011:2016)
 
 pdf("inst/estimation/kde/check-kde-predictions.pdf", width=10)
 for(reg in region_strings) {
