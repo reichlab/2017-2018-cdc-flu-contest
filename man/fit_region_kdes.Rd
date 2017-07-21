@@ -4,7 +4,8 @@
 \alias{fit_region_kdes}
 \title{Fits and saves KDE models for all region-year combinations}
 \usage{
-fit_region_kdes(data, region, first_fit_year, first_fit_week, path)
+fit_region_kdes(data, region, first_fit_year, last_fit_year, first_fit_week,
+  path)
 }
 \arguments{
 \item{data}{cleaned usflu dataset}
@@ -12,6 +13,8 @@ fit_region_kdes(data, region, first_fit_year, first_fit_week, path)
 \item{region}{character string identifying a region}
 
 \item{first_fit_year}{along with first_fit_week, defines the first time for which a fit is made}
+
+\item{last_fit_year}{last year in which a fitted season begins}
 
 \item{first_fit_week}{see first_fit_week, week defined on calendar scale}
 

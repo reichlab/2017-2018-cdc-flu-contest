@@ -4,10 +4,12 @@
 \alias{make_one_kde_prediction_file}
 \title{Wrapper for prediction of a single time-point from KDE fits}
 \usage{
-make_one_kde_prediction_file(path, season, season_week, n_sim)
+make_one_kde_prediction_file(fits_path, save_path, season, season_week, n_sim)
 }
 \arguments{
-\item{path}{filepath to fitted models}
+\item{fits_path}{filepath to fitted models}
+
+\item{save_path}{filepath to save models in}
 
 \item{season}{character string of season for current fit, in format "XXXX/YYYY"}
 
