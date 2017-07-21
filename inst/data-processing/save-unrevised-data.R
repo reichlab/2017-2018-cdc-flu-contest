@@ -1,5 +1,6 @@
 library(plyr) # for rbind.fill
 library(dplyr)
+library(tidyr)
 library(MMWRweek)
 source("https://raw.githubusercontent.com/cmu-delphi/delphi-epidata/master/src/client/delphi_epidata.R")
 
@@ -10,8 +11,9 @@ all_issues <- expand.grid(
     week = sprintf("%02d", c(1:20, 40:53))
   ) %>%
   apply(1, function(x) paste(x, collapse = "")) %>%
-  as.integer()
-all_issues <- all_issues[all_issues <= 201720]
+  as.integer() %>%
+  sort()
+all_issues <- all_issues[all_issues >= 201040 & all_issues <= 201720]
 
 all_obs <- lapply(all_regions,
   function(region_val) {
@@ -35,9 +37,9 @@ all_obs <- lapply(all_regions,
 
 all_obs$release_date <- as.Date(all_obs$release_date)
 all_obs <- all_obs %>%
-  separate(epiweek, c("year", "season_week"), sep=4, remove=FALSE) %>%
+  separate(epiweek, c("year", "week"), sep=4, remove=FALSE) %>%
   mutate(
     year = as.integer(year),
-    season_week = as.integer(season_week))
+    week = as.integer(week))
 
 saveRDS(all_obs, file = "data/flu_data_with_backfill.rds")

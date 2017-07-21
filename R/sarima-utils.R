@@ -28,7 +28,7 @@ sample_predictive_trajectories_arima <- function (object,
     sim <- matrix(NA, nrow = npaths, ncol = h)
 
     for (i in 1:npaths) {
-        try(sim[i, ] <- simulate.Arima(object, nsim = h), silent = TRUE)
+        try(sim[i, ] <- forecast:::simulate.Arima(object, nsim = h), silent = TRUE)
     }
 
     return(sim)
@@ -77,29 +77,17 @@ sample_predictive_trajectories_arima_wrapper <- function(
     params
 ) {
     ## load SARIMA fit
-    if(identical(region, "National") || identical(region, "X")) {
-        reg_str <- "national"
-    } else {
-        space_ind <- grep(" ", strsplit(region, "")[[1]])
-        reg_num <- as.integer(substr(region, space_ind + 1, nchar(region)))
-        reg_str <- paste0("region", sprintf("%02d", reg_num))
-    }
+    reg_str <- gsub(" ", "_", region)
 
-    if(as.integer(substr(analysis_time_season, 1, 4)) >=
-        as.integer(substr(params$first_test_season, 1, 4))) {
-        ## if we're doing prediction during the test period,
-        ## get fit obtained using all training data
-        fit_season_name <- "none"
-    } else {
-        fit_season_name <- analysis_time_season
-    }
     fit_filepath <- file.path(
         params$fits_filepath,
         paste0(
             "sarima-",
             reg_str,
-            "-fit-leave-out-",
-            gsub("/", "-", fit_season_name),
+            "-seasonal_difference_", params$seasonal_difference,
+            "-transformation_", params$transformation,
+            "-first_test_season_",
+            gsub("/", "_", params$first_test_season),
             ".rds"))
 
     ## If no SARIMA fit, exit early by returning a matrix of NAs
@@ -133,16 +121,17 @@ sample_predictive_trajectories_arima_wrapper <- function(
     ## another solution would be to write a version of stats::filter that
     ## does the "right thing" with NAs if filter coefficients are 0
     ## and then use that function in forecast:::myarima.sim
-    if(any(is.na(new_target_data)) && !is.na(tail(new_target_data, 1))) {
+    if(any(is.na(new_target_data) | is.infinite(new_target_data)) && !is.na(tail(new_target_data, 1))) {
         ## drop leading NAs
-        if(is.na(new_target_data[1])) {
-            num_leading_nas <- rle(is.na(new_target_data))$lengths[1]
+        if(is.na(new_target_data[1] | is.infinite(new_target_data[1]))) {
+            num_leading_nas <-
+              rle(is.na(new_target_data) | is.infinite(new_target_data))$lengths[1]
             new_target_data <- new_target_data[- seq_len(num_leading_nas)]
         }
 
         ## interpolate internal NAs
-        while(any(is.na(new_target_data))) {
-            na_rle <- rle(is.na(new_target_data))
+        while(any(is.na(new_target_data) | is.infinite(new_target_data))) {
+            na_rle <- rle(is.na(new_target_data) | is.infinite(new_target_data))
             na_run_start_ind <- na_rle$lengths[1] + 1
             na_run_end_ind <- na_run_start_ind + na_rle$lengths[2] - 1
             new_target_data[na_run_start_ind:na_run_end_ind] <-
