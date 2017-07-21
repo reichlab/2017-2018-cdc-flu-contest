@@ -34,6 +34,7 @@
 ##' @param data cleaned usflu dataset
 ##' @param region character string identifying a region
 ##' @param first_fit_year along with first_fit_week, defines the first time for which a fit is made
+##' @param last_fit_year last year in which a fitted season begins
 ##' @param first_fit_week see first_fit_week, week defined on calendar scale
 ##' @param path filepath for saving 
 ##' 
@@ -45,7 +46,7 @@
 ##' 
 ##' @export
 ##' 
-fit_region_kdes <- function(data, region, first_fit_year, first_fit_week, path) {
+fit_region_kdes <- function(data, region, first_fit_year, last_fit_year, first_fit_week, path) {
     require(MMWRweek)
     require(dplyr)
     
@@ -99,7 +100,6 @@ fit_region_kdes <- function(data, region, first_fit_year, first_fit_week, path) 
     reg_string <- ifelse(region=="National", "National", gsub(" ", "", region))
     
     ### loop over and fit each season of data, starting with first_fit_year
-    last_fit_year <- max(dat[which(dat$season_week==40),"year"], na.rm=TRUE)
     years_to_fit <- first_fit_year:last_fit_year
     
     for(year_to_fit in years_to_fit) {
