@@ -99,7 +99,7 @@ fit_region_kdes <- function(data, region, first_fit_year, first_fit_week, path) 
     reg_string <- ifelse(region=="National", "National", gsub(" ", "", region))
     
     ### loop over and fit each season of data, starting with first_fit_year
-    last_fit_year <- max(dat[which(data$season_week==40),"year"], na.rm=TRUE)
+    last_fit_year <- max(dat[which(dat$season_week==40),"year"], na.rm=TRUE)
     years_to_fit <- first_fit_year:last_fit_year
     
     for(year_to_fit in years_to_fit) {
