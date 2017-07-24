@@ -21,7 +21,7 @@ make_one_kde_prediction_file <- function(fits_path, save_path, season, season_we
     epiweek_year <- ifelse(epiweek<35, ## if epiweek is low, we are in end of season
                            substr(season, 6, 9), 
                            substr(season, 1, 4))
-    fname <- paste0(save_path,"/EW", epiweek,"-", epiweek_year, "-ReichLab_kde.csv")
+    fname <- paste0(save_path,"/EW", sprintf("%02d", epiweek), "-", epiweek_year, "-ReichLab_kde.csv")
     
     for(i in 1:length(region_strings)) {
         region <- region_strings[i]
