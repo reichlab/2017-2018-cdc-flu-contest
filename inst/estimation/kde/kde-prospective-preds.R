@@ -17,7 +17,7 @@ season_weeks <- 13:42
 ## last predictions due on 5/15/2017 (EW20 == SW 42)
 ## last predictions use data through EW40 == SW18
 ## first_analysis_time_season_week could be set to 15, but padding at front end
-registerDoMC(20)
+registerDoMC(4)
 
 for(season in prospective_seasons){
     foreach(season_week = season_weeks) %dopar% {
