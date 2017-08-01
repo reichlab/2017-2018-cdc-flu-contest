@@ -4,13 +4,14 @@ library(tidyr)
 library(lubridate)
 library(MMWRweek)
 library(cdcFlu20172018)
-library(FluSight)
+library(FluSight) ## devtools::install_github("jarad/FluSight")
 
-submissions_save_path <- "~/Documents/research/epi/flu/cdc-flusight-ensemble/"
+## submissions_save_path <- "~/Documents/research/epi/flu/cdc-flusight-ensemble/"
+submissions_save_path <- "~/Documents/research-versioned/cdc-flusight-ensemble/"
 
 year_week_combos <- expand.grid(
   year = as.character(2010:2017),
-  week = sprintf("%02d", c(1:19, 40:52)),
+  week = sprintf("%02d", c(1:19, 43:52)),
   stringsAsFactors = FALSE
 ) %>%
   mutate(epiweek = as.integer(paste0(year, week))) %>%
@@ -24,7 +25,8 @@ year_week_combos <- expand.grid(
     ) %>%
   arrange(epiweek)
 
-all_methods <- c("ReichLab_kcde",
+all_methods <- c("ReichLab_kde", 
+  "ReichLab_kcde",
   "ReichLab_sarima_seasonal_difference_TRUE",
   "ReichLab_sarima_seasonal_difference_FALSE")
 
