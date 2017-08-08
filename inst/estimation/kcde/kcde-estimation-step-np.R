@@ -1,7 +1,7 @@
 library(plyr)
 library(dplyr)
 library(reshape)
-library(kcde)
+library(kcde)  ## devtools::install_github("reichlab/kcde")
 library(cdcFlu20172018)
 library(np)
 

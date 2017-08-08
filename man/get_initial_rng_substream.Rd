@@ -5,7 +5,7 @@
 \title{Get the initial rng substream for an rstream object.  Should be called by all
 prediction methods before doing any random number generation.}
 \usage{
-get_initial_rng_substream(seed = 4114043)
+get_initial_rng_substream(seed = 9029979)
 }
 \arguments{
 \item{seed}{integer seed for rng; the default was randomly generated}

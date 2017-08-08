@@ -6,7 +6,7 @@
 of prediction method, region, and season left out.  Should be called by all
 prediction methods before doing any random number generation.}
 \usage{
-get_rng_substream(rngstream, seed = 4114043, method, region, season,
+get_rng_substream(rngstream, seed = 9029979, method, year, week,
   set_rng = TRUE)
 }
 \arguments{
@@ -18,11 +18,9 @@ advanced from its current state.}
 \item{method}{character string specifying prediction method
 currently one of "sarima", "kcde", or "kde"}
 
-\item{region}{character string specifying region; format "National" or
-"Region k" for k in {1, ..., 10}}
+\item{year}{character string specifying year, format "1998"}
 
-\item{season}{character string specifying season predicted, in format
-"1998/1999"}
+\item{week}{character string specifying epidemic week, in format "02"}
 
 \item{set_rng}{boolean should rng be set to use rstream with the returned
 rngstream object?}
