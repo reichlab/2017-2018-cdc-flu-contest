@@ -7,7 +7,7 @@ library(doMC)
 
 n_sims <- 10000
 prospective_seasons <- paste0(2010:2016, "/", 2011:2017)
-season_weeks <- 13:42
+season_weeks <- 10:43
 
 ## for 2017-2018 season, 
 
