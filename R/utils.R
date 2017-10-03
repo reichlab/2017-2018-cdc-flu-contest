@@ -254,6 +254,7 @@ get_observed_seasonal_quantities <- function(
   observed_peak_week <-
     which(rounded_obs_inc_in_season == as.numeric(rounded_observed_peak_inc))
 
+  weeks_in_first_season_year <- get_num_MMWR_weeks_in_first_season_year(season)
   observed_onset_week <- get_onset_week(
     incidence_trajectory = rounded_obs_inc_in_season,
 #    incidence_trajectory = obs_inc_in_season_leading_trailing_nas, # used in stable method
@@ -563,6 +564,9 @@ get_log_scores_via_trajectory_simulation <- function(
     last_analysis_time_season_week = 41)
 
   results_save_row <- 1L
+
+  weeks_in_first_season_year <-
+    get_num_MMWR_weeks_in_first_season_year(analysis_time_season)
 
   ## make predictions for each prediction target in the left-out season
   ## for each possible "last observed" week, starting with the last week of the previous season
@@ -962,10 +966,20 @@ get_submission_one_region_via_trajectory_simulation <- function(
     n_trajectory_sims,
     simulate_trajectories_function,
     simulate_trajectories_params) {
-  region_results <- read.csv(file.path(
-    find.package("cdcFlu20172018"),
-    "prospective-predictions",
-    "region-prediction-template.csv"))
+  weeks_in_first_season_year <-
+    get_num_MMWR_weeks_in_first_season_year(analysis_time_season)
+
+  if(identical(as.integer(weeks_in_first_season_year), 52L)) {
+    region_results <- read.csv(file.path(
+      find.package("cdcFlu20172018"),
+      "prospective-predictions",
+      "region-prediction-template.csv"))
+  } else {
+    region_results <- read.csv(file.path(
+      find.package("cdcFlu20172018"),
+      "prospective-predictions",
+      "region-prediction-template-EW53.csv"))
+  }
 
   region_str <- ifelse(identical(region, "National"),
     "US National",
@@ -1095,7 +1109,7 @@ get_submission_one_region_via_trajectory_simulation <- function(
     ))
 
     ## Get bin probabilities and add to region template
-    onset_week_bins <- c(as.character(10:42), "none")
+    onset_week_bins <- c(as.character(seq(from = 10, to = weeks_in_first_season_year - 10, by = 1)), "none")
     onset_bin_log_probs <- log(sapply(
       onset_week_bins,
       function(bin_name) {
@@ -1116,10 +1130,10 @@ get_submission_one_region_via_trajectory_simulation <- function(
         "Value"] <- season_week_to_year_week(
           floor(median(as.numeric(onset_week_by_sim_ind), na.rm = TRUE)),
           first_season_week = 31,
-          weeks_in_first_season_year = 52)
+          weeks_in_first_season_year = weeks_in_first_season_year)
     }
 
-    peak_week_bins <- as.character(10:42)
+    peak_week_bins <- seq(from = 10, to = weeks_in_first_season_year - 10, by = 1)
     peak_week_bin_log_probs <- log(sapply(
       peak_week_bins,
       function(bin_name) {
@@ -1136,7 +1150,7 @@ get_submission_one_region_via_trajectory_simulation <- function(
       "Value"] <- season_week_to_year_week(
         floor(median(as.numeric(peak_weeks_by_sim_ind))),
         first_season_week = 31,
-        weeks_in_first_season_year = 52)
+        weeks_in_first_season_year = weeks_in_first_season_year)
 
     peak_inc_bin_log_probs <- log(sapply(
       incidence_bin_names,
@@ -1180,6 +1194,30 @@ get_submission_one_region_via_trajectory_simulation <- function(
   return(region_results)
 }
 
+#' return integer that's either 52 or 53: number of MMWR weeks in the given year
+#'
+#' @param year year in the format "2014" -- can be character or numeric
+#'
+#' @details requires non-exported function start_date from MMWRweek package
+#'
+#' @export
+get_num_MMWR_weeks_in_year <- function(year) {
+  require(MMWRweek)
+  year <- as.numeric(year)
+  return(MMWRweek::MMWRweek(MMWRweek:::start_date(year + 1) - 1)$MMWRweek)
+}
+
+#' return integer that's either 52 or 53: number of weeks in the first year of
+#' a given season.
+#'
+#' @param season season in the format "2014/2015"
+#'
+#' @details requires MMWRweek package
+#'
+#' @export
+get_num_MMWR_weeks_in_first_season_year <- function(season) {
+  return(get_num_MMWR_weeks_in_year(substr(season, 1, 4)))
+}
 
 #' return the bin name for a given incidence
 #'
