@@ -7,7 +7,7 @@ library(doMC)
 
 data(flu_data)
 
-n_sims <- 10000
+n_sims <- 100000
 
 ## for 2017-2018 season, 
 ## first predictions due on 11/6/2017 (EW45 == SW15)
