@@ -13,7 +13,7 @@ analysis_time_year <- args[1]
 analysis_time_week <- args[2]
 seasonal_difference <- as.logical(args[3])
 
-#analysis_time_year <- "2010"
+#analysis_time_year <- "2013"
 #analysis_time_week <- "40"
 #seasonal_difference <- FALSE
 
@@ -95,11 +95,14 @@ simulate_trajectories_sarima_params <- list(
   first_test_season = analysis_time_season
 )
 
+weeks_in_first_season_year <-
+  get_num_MMWR_weeks_in_first_season_year(analysis_time_season)
+
 res <- get_submission_via_trajectory_simulation(
   data = data,
   analysis_time_season = analysis_time_season,
   first_analysis_time_season_week = 10, # == week 40 of year
-  last_analysis_time_season_week = 41, # analysis for 33-week season, consistent with flu competition -- at week 41, we do prediction for a horizon of one week ahead
+  last_analysis_time_season_week = weeks_in_first_season_year - 11, # at week 41, we do prediction for a horizon of one week ahead
   prediction_target_var = "weighted_ili",
   incidence_bins = data.frame(
     lower = c(0, seq(from = 0.05, to = 12.95, by = 0.1)),
