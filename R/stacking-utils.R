@@ -108,7 +108,7 @@ weighted_combine_predictions <- function(
 #' @param regions character vector specifying regions for which to get predictions,
 #'   "National" or "Regionk" for k in 1, ..., 10.
 #' @param seasons character vector specifying seasons for which to get predictions,
-#'   "2011/2012" or "2011-2012" or "*" for all seasons
+#'   "2011/2012" or "2011-2012"
 #' @param models character vector specifying models for which to get predictions,
 #'   "kde", "kcde", or "sarima"
 #' @param prediction_targets character vector specifying prediction targets,
@@ -122,8 +122,8 @@ weighted_combine_predictions <- function(
 assemble_predictions <- function(
   preds_path = "inst/estimation/loso-predictions",
   regions = c("National", paste0("Region", 1:10)),
-  seasons = "*",
-  models = c("kde", "kcde", "sarima"),
+  seasons = paste0(2010:2016, "-", 2011:2017),
+  models = c("kde", "kcde", "sarima_seasonal_difference_TRUE", "sarima_seasonal_difference_FALSE"),
   prediction_targets = c("onset", "peak_week", "peak_inc", "ph_1_inc", "ph_2_inc", "ph_3_inc", "ph_4_inc"),
   prediction_types = c("log_score", "competition_log_score", "bin_log_probs")
   ) {
@@ -131,45 +131,71 @@ assemble_predictions <- function(
   seasons <- gsub("/", "-", seasons)
   
   ## names of files with prediction results to load
-  model_region_season_combos <- expand.grid(
-    model = models,
-    region = regions,
-    season = seasons,
-    stringsAsFactors = TRUE
-  )
-  file_name_patterns <- apply(model_region_season_combos, 1,
-    function(combo) {
-      paste0(preds_path, "/", combo["model"], "-", combo["region"], "-", combo["season"], "*")
+  file_name_patterns <- sapply(models,
+    function(model) {
+      if(identical(preds_path, "inst/prospective-predictions")) {
+        if(model %in% c("sarima_seasonal_difference_TRUE", "sarima_seasonal_difference_FALSE")) {
+          paste0(preds_path, "/sarima/prospective_predictions_", model, "/", "*")
+        } else if(identical(model, "kcde")) {
+          paste0(preds_path, "/kcde/prospective_predictions_kcde/*")
+        } else if(identical(model, "kde")) {
+          paste0(preds_path, "/kde/*")
+        } else {
+          stop("Invalid model.")
+        }
+      } else {
+        stop("Currently the only supported path for predictions files is inst/prospective-predictions")
+      }
     })
   file_names <- Sys.glob(file_name_patterns)
+  
+  ## Subset file_names to only files for the specified seasons
+  file_name_seasons <- sapply(file_names,
+    function(file_path) {
+      file_start_ind <- regexpr("EW[0-9]{2}-201[0-7]", file_path)
+      ew <- as.integer(substr(file_path, file_start_ind + 2, file_start_ind + 3))
+      year <- as.integer(substr(file_path, file_start_ind + 5, file_start_ind + 8))
+      if(ew > 30) {
+        season <- paste0(year, "-", year + 1)
+      } else {
+        season <- paste0(year - 1, "-", year)
+      }
+      return(season)
+    })
+  file_names <- file_names[file_name_seasons %in% seasons]
   
   ## load the prediction results
   pred_res <- rbind.fill(lapply(
     file_names,
     function(file_path) {
-      region_val <- names(unlist(sapply(regions, function(region_val) grep(paste0(region_val, "-"), file_path))))
-      readRDS(file_path) %>%
-        mutate(region = region_val)
+      file_start_ind <- regexpr("EW[0-9]{2}-201[0-7]", file_path)
+      ew <- as.integer(substr(file_path, file_start_ind + 2, file_start_ind + 3))
+      year <- as.integer(substr(file_path, file_start_ind + 5, file_start_ind + 8))
+      if(ew > 30) {
+        season <- paste0(year, "-", year + 1)
+      } else {
+        season <- paste0(year - 1, "-", year)
+      }
+      read.csv(file_path) %>%
+        mutate(
+          ew = ew,
+          year = year,
+          season = season)
     }
   ))
   
-  ## narrow down to the specified prediction targets and types
-  prediction_cols_to_keep_templates <- outer(prediction_targets, prediction_types,
-    function(target, type) {
-      paste0(target, "_", ifelse(type == "bin_log_probs", "bin_.*_log_prob", type))
-    }) %>%
-    as.vector()
-  prediction_cols_to_keep <- lapply(
-    prediction_cols_to_keep_templates,
-    function(pattern) grep(pattern, names(pred_res))) %>%
-    unlist()
-  prediction_cols_to_keep <- names(pred_res)[prediction_cols_to_keep]
+  ## narrow down to the specified prediction targets
+  targets_submission_format <- prediction_targets
+  targets_submission_format[targets_submission_format == "onset"] <- "Season onset"
+  targets_submission_format[targets_submission_format == "peak_week"] <- "Season peak week"
+  targets_submission_format[targets_submission_format == "peak_inc"] <- "Season peak percentage"
+  targets_submission_format[targets_submission_format == "ph_1_inc"] <- "1 wk ahead"
+  targets_submission_format[targets_submission_format == "ph_2_inc"] <- "2 wk ahead"
+  targets_submission_format[targets_submission_format == "ph_3_inc"] <- "3 wk ahead"
+  targets_submission_format[targets_submission_format == "ph_4_inc"] <- "4 wk ahead"
+  
   target_pred_res <- pred_res %>%
-    select_("model",
-      "region",
-      "analysis_time_season",
-      "analysis_time_season_week",
-      .dots = prediction_cols_to_keep)
+    filter(Target %in% targets_submission_format & Type == "Bin")
   
   return(target_pred_res)
 }
@@ -201,7 +227,7 @@ assemble_predictions <- function(
 #' @export
 assemble_stacking_inputs <- function(
   regions,
-  seasons = "*",
+  seasons = paste0(2010:2016, "-", 2011:2017),
   prediction_target,
   component_model_names,
   explanatory_variables,
@@ -211,81 +237,66 @@ assemble_stacking_inputs <- function(
   ## Load prediction results
   target_pred_res <- assemble_predictions(
     preds_path = preds_path,
-    regions = regions,
+    regions = c("National", paste0("Region", 1:10)),
     seasons = seasons,
     models = component_model_names,
     prediction_targets = prediction_target
   )
   
-  ## get model confidence
-  cols_to_examine <- grep(paste0(prediction_target, ".*_log_prob"), colnames(target_pred_res), value = TRUE)
-  target_pred_res$model_confidence <- sapply(
-    seq_len(nrow(target_pred_res)),
-    function(i) {
-      temp <- cumsum(sort(unlist(exp(target_pred_res[i, cols_to_examine])), decreasing = TRUE))
-      temp <- temp / temp[length(temp)]
-      min(which(temp >= 0.90))
-    })
-  target_pred_res_with_model_confidence <- target_pred_res %>%
-    select_(.dots = c("region", "analysis_time_season", "analysis_time_season_week", "model", "model_confidence")) %>%
-    spread_("model", "model_confidence")
-  colnames(target_pred_res_with_model_confidence) <- c("region",
-    "analysis_time_season",
-    "analysis_time_season_week",
-    paste0(colnames(target_pred_res_with_model_confidence)[
-      seq(from = ncol(target_pred_res_with_model_confidence) - 2, to = ncol(target_pred_res_with_model_confidence))], "_model_confidence"))
-  
-  if(include_model_performance) {
-    ## spread log scores
-    target_pred_res_with_log_score <- target_pred_res %>%
-      select_(.dots = c("region", "analysis_time_season", "analysis_time_season_week", "model", paste0(prediction_target, "_log_score"))) %>%
-      spread_("model", paste0(prediction_target, "_log_score"))
-    colnames(target_pred_res_with_log_score) <- c("region",
-      "analysis_time_season",
-      "analysis_time_season_week",
-      paste0(colnames(target_pred_res_with_log_score)[
-        seq(from = ncol(target_pred_res_with_log_score) - 2, to = ncol(target_pred_res_with_log_score))], "_log_score"))
-    
-    ## join to target_pred_res_with_log_score and store in target_pred_res
-    target_pred_res <- left_join(target_pred_res_with_log_score,
-      target_pred_res_with_model_confidence,
-      by = c("region",
-        "analysis_time_season",
-        "analysis_time_season_week")) %>%
-      mutate(region = ifelse(region == "National", "National", paste0("Region ", substr(region, 7, nchar(region)))))
-  } else {
-    target_pred_res <- target_pred_res_with_model_confidence %>%
-      mutate(region = ifelse(region == "National", "National", paste0("Region ", substr(region, 7, nchar(region)))))
-  }
-  
-  ## add weighted ili
-  ## Load and clean up data set
+  ## For each season, ...
+  for(season in seasons) {
+    ## get observed value of prediction target
+    if(identical(prediction_target, "onset")) {
+      ## get observed onset week
+      flu_data_for_create_truth <- flu_data %>%
+        transmute(
+          location = gsub(
+            "National",
+            "US National",
+            gsub("Region ",
+              "HHS Region ",
+              region)),
+          week = week,
+          season = season,
+          season_week = season_week,
+          wILI = weighted_ili,
+          ILI = weighted_ili # as of 20171016, FluSight::create_truth operates on ILI column
+        )
+      obs_target_values_by_season <- map_df(seasons,
+        function(season_val) {
+          FluSight::create_truth(fluview = FALSE,
+            year = as.integer(substr(season_val, 1, 4)),
+            weekILI = filter(flu_data_for_create_truth,
+              season == gsub("-", "/", season_val) & season_week >= 10),
+            challenge = "ilinet") %>%
+          mutate(season = season_val)
+        }
+      )
+      
+      #.... ##MORE TO DO -- other targets
+    }
 
-  ## subset data to be only the region of interest
-  regions_data <- sapply(regions,
-    function(reg) {
-      if(reg == "National") {
-        return("X")
-      } else {
-        return(paste0("Region ", substr(reg, 7, nchar(reg))))
-      }
-    })
-  data <- flu_data[flu_data$region %in% regions_data,]
-  
-  ## join to target_pred_res
-  reduced_data <- data %>%
-    as.data.frame() %>%
-    transmute(
-      region = ifelse(region == "X", "National", as.character(region)),
-      analysis_time_season = season,
-      analysis_time_season_week = season_week,
-      weighted_ili = weighted_ili
-    )
-  target_pred_res <- left_join(target_pred_res,
-    reduced_data,
-    by = c("region",
-      "analysis_time_season",
-      "analysis_time_season_week"))
+    ## subset to weeks that are actually used in scoring.
+    ## From Flu_Challenge_2017-18_v3.docx, these weeks are as follows:
+    ## 
+    ## For the seasonal targets, the evaluation period will begin with the first
+    ## forecast submission. The evaluation period for season onset will end with
+    ## the forecast that is received six weeks after the observed onset week while
+    ## the evaluation period for season peak and intensity will end with the first
+    ## forecast received after ILINet is observed to go below baseline for the
+    ## final time during an influenza season. For short-term forecasts, the
+    ## evaluation period will begin with the forecast received four weeks prior to
+    ## the onset week and will end with the forecast received three weeks after
+    ## ILINet is observed to go below baseline for the final time during an
+    ## influenza season.
+
+    
+
+
+
+    ## Get scores via FluSight::score_entry()
+    ## https://github.com/jarad/FluSight/blob/master/R/score_entry.R
+  }
   
   ## drop rows where any of the (response or) explanatory variables for weights
   ## have NA values.  this is aggressive.
@@ -300,6 +311,7 @@ assemble_stacking_inputs <- function(
       function(x) {!any(is.na(x))}), # row has na?  drop if so
     , # all columns
     drop = FALSE]
+
   
   return(target_pred_res)
 }
@@ -309,8 +321,6 @@ assemble_stacking_inputs <- function(
 #' The weights are a function of observed covariates (which?),
 #' and are obtained via gradient tree boosting
 #' 
-#' @param regions string with region: either "National" or in the format
-#'   "Regionk" for k in {1, ..., 10}
 #' @param prediction_target string with either "onset", "peak_week",
 #'   "peak_inc", "ph1_inc", ..., "ph4_inc"
 #' @param component_model_names character vector with names of component models
@@ -359,7 +369,6 @@ assemble_stacking_inputs <- function(
 #' 
 #' @export
 fit_stacked_model <- function(
-  regions,
   prediction_target,
   component_model_names,
   explanatory_variables =

@@ -272,6 +272,48 @@ get_observed_seasonal_quantities <- function(
 }
 
 
+
+#' Compute season onset, peak week, and peak incidence
+#'
+#' @param data a data frame containing at minimum columns named season,
+#'   season_week and a column with some sort of incidence measure
+#' @param season the season to look at
+#' @param incidence_var a character string naming the variable in the data
+#'   argument containing a measure of incidence, or an integer index
+#'
+#' @return a list with four entries:
+#'   1) observed_onset_week, either an integer between first_CDC_season_week
+#'     and last_CDC_season_week (inclusive), or "none"
+#'   2) observed_peak_week, an integer between first_CDC_season_week and
+#'     last_CDC_season_week (inclusive)
+#'   3) observed_peak_inc, a numeric with the maximum value of the specified
+#'     incidence measure between first_CDC_season_week and last_CDC_season_week
+#'   4) observed_peak_inc_bin, character name of incidence bin for peak incidence
+#'
+#' @export
+get_official_observed_seasonal_quantities <- function(
+  data,
+  season,
+  incidence_var
+) {
+  require(FluSight)
+  
+  first_season_ind <- min(which(data$season == season))
+  last_season_ind <- max(which(data$season == season))
+
+  results <- FluSight::create_truth(fluview = FALSE,
+    year = substr(season, 1, 4),
+    weekILI = data,
+    challenge = "ilinet")
+
+  return(list(observed_onset_week = observed_onset_week,
+    observed_peak_week = observed_peak_week,
+    observed_peak_inc = observed_peak_inc,
+    observed_peak_inc_bin = observed_peak_inc_bin
+  ))
+}
+
+
 #' Calculate "log scores" for the purpose of the competition -- log[sum_i(p_i)] where p_i is the model's
 #' probability of bin i and i runs over some bins adjacent to the bin where the observed quantity was.
 #'
