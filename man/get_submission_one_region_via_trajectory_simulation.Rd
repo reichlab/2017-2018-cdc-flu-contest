@@ -8,7 +8,8 @@ get_submission_one_region_via_trajectory_simulation(data,
   analysis_time_season = "2016/2017", first_analysis_time_season_week = 10,
   last_analysis_time_season_week = 41, region, prediction_target_var,
   incidence_bins, incidence_bin_names, n_trajectory_sims,
-  simulate_trajectories_function, simulate_trajectories_params)
+  simulate_trajectories_function, simulate_trajectories_params,
+  regional = TRUE)
 }
 \arguments{
 \item{data}{data frame with observed disease data available to use for predictions}
@@ -53,6 +54,9 @@ incidence trajectories.  It will be called with the following arguments:
 
 \item{simulate_trajectories_params}{optional additional parameters to pass
 to simulate_trajectories_function}
+
+\item{regional}{logical whether to make predictions for HHS regions (TRUE),
+or states (FALSE)}
 }
 \value{
 data frame with contents suitable for writing out as a csv file in

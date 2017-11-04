@@ -13,8 +13,7 @@
 #'
 #' @return a dataset in similar format to that returned by the Delphi epidata API
 #'
-#' @examples
-#''
+#'
 #' @export
 get_partially_revised_ilinet <- function(region_str, epiweek_str) {
   require(epiforecast)
