@@ -2,6 +2,7 @@
 #' Download and preprocess the latest CDC flu data, both national and regional
 #'
 #' @return data frame with latest flu data, preprocessed
+#' @export
 download_and_preprocess_flu_data <- function() {
   ### The following lines can be used to manually fix issue with lack of https in get_flu_data, until the package is updated
   # debug(get_flu_data)
@@ -62,6 +63,77 @@ download_and_preprocess_flu_data <- function() {
 
   return(data)
 }
+
+#' Download and preprocess the latest CDC flu data, state-level
+#'
+#' @return data frame with latest state-level flu data, preprocessed
+#' @export
+download_and_preprocess_state_flu_data <- function() {
+    ### The following lines can be used to manually fix issue with lack of https in get_flu_data, until the package is updated
+    # debug(get_flu_data)
+    # unlink(out_file)
+    # tmp <- POST("https://gis.cdc.gov/grasp/fluview/FluViewPhase2CustomDownload.ashx",
+    #   body = params, write_disk(out_file))
+    require(cdcfluview)
+    require(MMWRweek)
+    require(dplyr)
+    require(lubridate)
+    
+    flu_data_raw <- get_flu_data(
+        region = "state",
+        sub_region = "all",
+        data_source = "ilinet",
+        years = 1997:2017
+    )
+    
+    ## ggplot(flu_data, aes(x=YEAR+WEEK/53, y=`%UNWEIGHTED ILI`)) + geom_line() + facet_wrap(~REGION)
+    
+    flu_data <- transmute(flu_data_raw,
+        region.type = `REGION TYPE`,
+        region = REGION,
+        year = YEAR,
+        week = WEEK,
+        time = as.POSIXct(MMWRweek2Date(YEAR, WEEK)),
+        unweighted_ili = as.numeric(`%UNWEIGHTED ILI`),
+        ili_count = ILITOTAL,
+        patient_count = `TOTAL PATIENTS`,
+        provider_count = `NUM. OF PROVIDERS`
+    )
+    
+    ## set rows with denominator zeroes to NAs
+    flu_data[which(flu_data$patient_count==0),"weighted_ili"] <- NA
+    
+    ## Add time_index column: the number of days since some origin date
+    ## (1970-1-1 in this case).  The origin is arbitrary.
+    flu_data$time_index <- as.integer(lubridate::date(flu_data$time) -  ymd("1970-01-01"))
+    
+    ## Season column: for example, weeks of 2010 up through and including week 30
+    ## get season 2009/2010; weeks after week 30 get season 2010/2011
+    ## Official CDC flu season for the purposes of prediction runs from week 40 of
+    ## one year to week 20 of the next; the season start week we define here is the
+    ## mid-point of the "off-season"
+    flu_data$season <- ifelse(
+        flu_data$week <= 30,
+        paste0(flu_data$year - 1, "/", flu_data$year),
+        paste0(flu_data$year, "/", flu_data$year + 1)
+    )
+    
+    ## Season week column: week number within season
+    ## weeks after week 30 get season_week = week - 30
+    ## weeks before week 30 get season_week = week + (number of weeks in previous year) - 30
+    ## This computation relies on the start_date function in package MMWRweek,
+    ## which is not exported from that package's namespace!!!
+    flu_data$season_week <- ifelse(
+        flu_data$week <= 30,
+        flu_data$week + MMWRweek(MMWRweek:::start_date(flu_data$year) - 1)$MMWRweek - 30,
+        flu_data$week - 30
+    )
+    
+    state_flu <- as.data.frame(flu_data)
+    
+    return(state_flu)
+}
+
 
 
 
@@ -912,7 +984,9 @@ get_log_scores_via_trajectory_simulation <- function(
 #'         parameters
 #' @param simulate_trajectories_params optional additional parameters to pass
 #'   to simulate_trajectories_function
-#'
+#' @param all_regions a character vector with all of the regions over which to make forecasts,
+#'   defaults to HHS region names
+#' 
 #' @return data frame with contents suitable for writing out as a csv file in
 #'   the CDC's standardized format
 #'
@@ -927,8 +1001,10 @@ get_submission_via_trajectory_simulation <- function(
     incidence_bin_names,
     n_trajectory_sims,
     simulate_trajectories_function,
-    simulate_trajectories_params) {
-    all_regions <- c("National", paste0("Region ", 1:10))
+    simulate_trajectories_params,
+    all_regions=c("National", paste0("Region ", 1:10))
+    ) {
+    regional <- any(data$region.type == "HHS Regions")
     return(
         rbind.fill(lapply(all_regions, function(region) {
             get_submission_one_region_via_trajectory_simulation(
@@ -942,7 +1018,8 @@ get_submission_via_trajectory_simulation <- function(
                 incidence_bin_names = incidence_bin_names,
                 n_trajectory_sims = n_trajectory_sims,
                 simulate_trajectories_function = simulate_trajectories_function,
-                simulate_trajectories_params = simulate_trajectories_params
+                simulate_trajectories_params = simulate_trajectories_params,
+                regional=regional
             )
         }))
     )
@@ -993,9 +1070,12 @@ get_submission_via_trajectory_simulation <- function(
 #'         parameters
 #' @param simulate_trajectories_params optional additional parameters to pass
 #'   to simulate_trajectories_function
+#' @param regional logical whether to make predictions for HHS regions (TRUE),
+#'   or states (FALSE)
 #'
 #' @return data frame with contents suitable for writing out as a csv file in
 #'   the CDC's standardized format, but for just one region
+#' @export
 get_submission_one_region_via_trajectory_simulation <- function(
     data,
     analysis_time_season = "2016/2017",
@@ -1007,25 +1087,40 @@ get_submission_one_region_via_trajectory_simulation <- function(
     incidence_bin_names,
     n_trajectory_sims,
     simulate_trajectories_function,
-    simulate_trajectories_params) {
+    simulate_trajectories_params,
+    regional = TRUE) {
   weeks_in_first_season_year <-
     get_num_MMWR_weeks_in_first_season_year(analysis_time_season)
 
-  if(identical(as.integer(weeks_in_first_season_year), 52L)) {
-    region_results <- read.csv(file.path(
-      find.package("cdcFlu20172018"),
-      "prospective-predictions",
-      "region-prediction-template.csv"))
+  if(regional){
+      ## find region ID for CDC submission
+      region_str <- ifelse(identical(region, "National"),
+          "US National",
+          gsub("Region ", "HHS Region ", region))
+      
+      ## load region-specific submission file template
+      if(identical(as.integer(weeks_in_first_season_year), 52L)) {
+          region_results <- read.csv(file.path(
+              find.package("cdcFlu20172018"),
+              "prospective-predictions",
+              "region-prediction-template.csv"))
+      } else {
+          region_results <- read.csv(file.path(
+              find.package("cdcFlu20172018"),
+              "prospective-predictions",
+              "region-prediction-template-EW53.csv"))
+      }
   } else {
-    region_results <- read.csv(file.path(
-      find.package("cdcFlu20172018"),
-      "prospective-predictions",
-      "region-prediction-template-EW53.csv"))
+      ## find state ID for CDC submission
+      region_str <- region
+      
+      ## load region-specific submission file template
+      region_results <- read.csv(file.path(
+          find.package("cdcFlu20172018"),
+          "prospective-predictions",
+          "state-prediction-template.csv"))
   }
 
-  region_str <- ifelse(identical(region, "National"),
-    "US National",
-    gsub("Region ", "HHS Region ", region))
   region_results$Location <- region_str
 
   ## subset data to be only the region-specific data
@@ -1119,19 +1214,20 @@ get_submission_one_region_via_trajectory_simulation <- function(
       get_inc_bin(subset_trajectory_samples,
         return_character = FALSE)
 
-    ## Get onset week for each simulated trajectory
-    onset_week_by_sim_ind <-
-      apply(subset_trajectory_samples, 1, function(trajectory) {
-        get_onset_week(
-          incidence_trajectory = trajectory,
-          baseline =
-            get_onset_baseline(region = region, season = analysis_time_season),
-          onset_length = 3L,
-          first_season_week = 31,
-          weeks_in_first_season_year = weeks_in_first_season_year
-        )
-      })
-
+    if(regional){
+        ## Get onset week for each simulated trajectory
+        onset_week_by_sim_ind <-
+            apply(subset_trajectory_samples, 1, function(trajectory) {
+                get_onset_week(
+                    incidence_trajectory = trajectory,
+                    baseline =
+                        get_onset_baseline(region = region, season = analysis_time_season),
+                    onset_length = 3L,
+                    first_season_week = 31,
+                    weeks_in_first_season_year = weeks_in_first_season_year
+                )
+            })
+    }
     ## Get peak incidence for each simulated trajectory
     peak_inc_bin_by_sim_ind <-
       apply(binned_subset_trajectory_samples, 1, function(trajectory) {
@@ -1151,30 +1247,32 @@ get_submission_one_region_via_trajectory_simulation <- function(
     ))
 
     ## Get bin probabilities and add to region template
-    onset_week_bins <- c(as.character(seq(from = 10, to = weeks_in_first_season_year - 10, by = 1)), "none")
-    onset_bin_log_probs <- log(sapply(
-      onset_week_bins,
-      function(bin_name) {
-        sum(onset_week_by_sim_ind == bin_name)
-      })) -
-      log(length(onset_week_by_sim_ind))
-    onset_bin_log_probs <- onset_bin_log_probs - logspace_sum(onset_bin_log_probs)
-    region_results[
-      region_results$Target == "Season onset" & region_results$Type == "Bin",
-      "Value"] <- exp(onset_bin_log_probs)
-    if(onset_bin_log_probs[length(onset_bin_log_probs)] >= 0.5) {
-      region_results[
-        region_results$Target == "Season onset" & region_results$Type == "Point",
-        "Value"] <- NA
-    } else {
-      region_results[
-        region_results$Target == "Season onset" & region_results$Type == "Point",
-        "Value"] <- season_week_to_year_week(
-          floor(median(as.numeric(onset_week_by_sim_ind), na.rm = TRUE)),
-          first_season_week = 31,
-          weeks_in_first_season_year = weeks_in_first_season_year)
+    if(regional) {
+        onset_week_bins <- c(as.character(seq(from = 10, to = weeks_in_first_season_year - 10, by = 1)), "none")
+        onset_bin_log_probs <- log(sapply(
+            onset_week_bins,
+            function(bin_name) {
+                sum(onset_week_by_sim_ind == bin_name)
+            })) -
+            log(length(onset_week_by_sim_ind))
+        onset_bin_log_probs <- onset_bin_log_probs - logspace_sum(onset_bin_log_probs)
+        region_results[
+            region_results$Target == "Season onset" & region_results$Type == "Bin",
+            "Value"] <- exp(onset_bin_log_probs)
+        if(onset_bin_log_probs[length(onset_bin_log_probs)] >= 0.5) {
+            region_results[
+                region_results$Target == "Season onset" & region_results$Type == "Point",
+                "Value"] <- NA
+        } else {
+            region_results[
+                region_results$Target == "Season onset" & region_results$Type == "Point",
+                "Value"] <- season_week_to_year_week(
+                    floor(median(as.numeric(onset_week_by_sim_ind), na.rm = TRUE)),
+                    first_season_week = 31,
+                    weeks_in_first_season_year = weeks_in_first_season_year)
+        }
     }
-
+    
     peak_week_bins <- seq(from = 10, to = weeks_in_first_season_year - 10, by = 1)
     peak_week_bin_log_probs <- log(sapply(
       peak_week_bins,
@@ -1306,6 +1404,7 @@ calc_median_from_binned_probs <- function(probs) {
 #' @param preds_save_file path to a file with predictions in csv submission format
 #' @param plots_save_file path to a pdf file where plots should go
 #' @param data data observed so far this season
+#' @export
 make_predictions_plots <- function(
   preds_save_file,
   plots_save_file,
@@ -1315,14 +1414,23 @@ make_predictions_plots <- function(
   require("ggplot2")
 
   predictions <- read.csv(preds_save_file)
-  preds_region_map <- data.frame(
-    internal_region = c("X", paste0("Region ", 1:10)),
-    preds_region = c("US National", paste0("HHS Region ", 1:10))
-  )
-
+  regional <- data$region.type[1] =="HHS Regions"
+  
+  if(regional) {
+      preds_region_map <- data.frame(
+          internal_region = c("X", paste0("Region ", 1:10)),
+          preds_region = c("US National", paste0("HHS Region ", 1:10))
+      )
+  } else {
+    preds_region_map <- data.frame(
+        internal_region = unique(predictions$Location),
+        preds_region = unique(predictions$Location)
+    )
+  }
+  
   current_season <- tail(data$season, 1)
-  region <- "Region 1"
-
+  current_year <- tail(data$year, 1)
+  
   pdf(plots_save_file)
 
   for(region in unique(data$region)) {
@@ -1332,36 +1440,41 @@ make_predictions_plots <- function(
     p_obs <- ggplot(data[data$region == region & data$season == current_season, ]) +
       expand_limits(x = c(0, 42), y = c(0, 13)) +
       geom_line(aes(x = season_week, y = weighted_ili)) +
-      geom_hline(yintercept = get_onset_baseline(region, season = "2016/2017"), colour = "red") +
       ggtitle("Observed incidence") +
       theme_bw()
 
+    if(regional){
+        p_obs <- p_obs + 
+            geom_hline(yintercept = get_onset_baseline(region, season = current_season), colour = "red")
+    }
+    
     ## Onset
-    reduced_preds <- predictions[predictions$Location == preds_region & predictions$Target == "Season onset" & predictions$Type == "Bin", ] %>%
-      mutate(
-        season_week = year_week_to_season_week(as.numeric(as.character(Bin_start_incl)), 2016)
-      )
-    point_pred <- predictions[predictions$Location == preds_region & predictions$Target == "Season onset" & predictions$Type == "Point", , drop = FALSE] %>%
-      mutate(
-        season_week = year_week_to_season_week(Value, 2016)
-      )
-    p_onset <- ggplot(reduced_preds) +
-      geom_line(aes(x = season_week, y = Value)) +
-      geom_vline(xintercept = point_pred$season_week, colour = "red") +
-      expand_limits(x = c(0, 42)) +
-      ylab("predicted probability of onset") +
-      ggtitle("Onset") +
-      theme_bw()
-
+    if(regional) {
+        reduced_preds <- predictions[predictions$Location == preds_region & predictions$Target == "Season onset" & predictions$Type == "Bin", ] %>%
+            mutate(
+                season_week = year_week_to_season_week(as.numeric(as.character(Bin_start_incl)), current_year)
+            )
+        point_pred <- predictions[predictions$Location == preds_region & predictions$Target == "Season onset" & predictions$Type == "Point", , drop = FALSE] %>%
+            mutate(
+                season_week = year_week_to_season_week(Value, current_year)
+            )
+        p_onset <- ggplot(reduced_preds) +
+            geom_line(aes(x = season_week, y = Value)) +
+            geom_vline(xintercept = point_pred$season_week, colour = "red") +
+            expand_limits(x = c(0, 42)) +
+            ylab("predicted probability of onset") +
+            ggtitle("Onset") +
+            theme_bw()
+    }
 
     ## Peak Timing
     reduced_preds <- predictions[predictions$Location == preds_region & predictions$Target == "Season peak week" & predictions$Type == "Bin", ] %>%
       mutate(
-        season_week = year_week_to_season_week(as.numeric(as.character(Bin_start_incl)), 2016)
+        season_week = year_week_to_season_week(as.numeric(as.character(Bin_start_incl)), current_year)
       )
     point_pred <- predictions[predictions$Location == preds_region & predictions$Target == "Season peak week" & predictions$Type == "Point", , drop = FALSE] %>%
       mutate(
-        season_week = year_week_to_season_week(Value, 2016)
+        season_week = year_week_to_season_week(Value, current_year)
       )
     p_peak_timing <- ggplot(reduced_preds) +
       geom_line(aes(x = season_week, y = Value)) +
@@ -1388,14 +1501,16 @@ make_predictions_plots <- function(
 
     grid.newpage()
     pushViewport(viewport(layout =
-        grid.layout(nrow = 4,
+        grid.layout(nrow = 4,# ifelse(regional, 4, 3), ## adjustment for onset
           ncol = 2,
           heights = unit(c(2, 1, 1, 1), c("lines", "null", "null", "null")))))
 
     grid.text(preds_region,
       gp = gpar(fontsize = 20),
       vp = viewport(layout.pos.col = 1:2, layout.pos.row = 1))
-    print(p_onset, vp = viewport(layout.pos.col = 1, layout.pos.row = 2))
+    if(regional){
+        print(p_onset, vp = viewport(layout.pos.col = 1, layout.pos.row = 2))
+    }
     print(p_obs, vp = viewport(layout.pos.col = 1, layout.pos.row = 3))
     print(p_peak_timing, vp = viewport(layout.pos.col = 1, layout.pos.row = 4))
     print(p_peak_inc, vp = viewport(layout.pos.col = 2, layout.pos.row = 3))

@@ -1,5 +1,6 @@
-## regional SARIMA fits
-## started: 5 Oct 2016
+## state-level SARIMA fits
+## 5 Oct 2016: started for regional level
+## 3 Nov 2017 : adapted for state-level
 ## Nicholas Reich
 
 library(plyr)
