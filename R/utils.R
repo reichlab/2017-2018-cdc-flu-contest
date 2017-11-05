@@ -10,8 +10,8 @@ download_and_preprocess_flu_data <- function() {
   # tmp <- POST("https://gis.cdc.gov/grasp/fluview/FluViewPhase2CustomDownload.ashx",
   #   body = params, write_disk(out_file))
 
-  regionflu <- get_flu_data("hhs", sub_region=1:10, data_source="ilinet", years=1997:2016)
-  usflu <- get_flu_data("national", sub_region=NA, data_source="ilinet", years=1997:2016)
+  regionflu <- get_flu_data("hhs", sub_region=1:10, data_source="ilinet", years=1997:2017)
+  usflu <- get_flu_data("national", sub_region=NA, data_source="ilinet", years=1997:2017)
 
   ## make AGE cols in usflu integer data type
   cols <- grepl('^AGE', colnames(regionflu))
@@ -29,6 +29,9 @@ download_and_preprocess_flu_data <- function() {
     week = WEEK,
     time = as.POSIXct(MMWRweek2Date(YEAR, WEEK)),
     weighted_ili = as.numeric(`% WEIGHTED ILI`))
+
+  ## set national region to "National"
+  data$region[data$region == "X"] <- "National"
 
   ## set zeroes to NAs
   data[which(data$weighted_ili==0),"weighted_ili"] <- NA
@@ -1418,7 +1421,7 @@ make_predictions_plots <- function(
   
   if(regional) {
       preds_region_map <- data.frame(
-          internal_region = c("X", paste0("Region ", 1:10)),
+          internal_region = c("National", paste0("Region ", 1:10)),
           preds_region = c("US National", paste0("HHS Region ", 1:10))
       )
   } else {

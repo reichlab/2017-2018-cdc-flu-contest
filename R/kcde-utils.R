@@ -41,7 +41,7 @@ simulate_trajectories_kcde <- function(
     "-prediction_horizon_", 1L,
     "-max_lag_", params$max_lag,
     "-seasonality_", params$seasonality,
-    "-first_test_season_", gsub("/", "-", analysis_time_season)
+    "-first_test_season_", gsub("/", "-", params$first_test_season)
   )
 
   lambda <- readRDS(
@@ -59,7 +59,7 @@ simulate_trajectories_kcde <- function(
     region,
     "-max_lag_", params$max_lag,
     "-seasonality_", params$seasonality,
-    "-first_test_season_", gsub("/", "-", analysis_time_season)
+    "-first_test_season_", gsub("/", "-", params$first_test_season)
   )
 
   copula_fits_file_name <- paste0(
@@ -79,7 +79,7 @@ simulate_trajectories_kcde <- function(
         "-prediction_horizon_", prediction_horizon,
         "-max_lag_", params$max_lag,
         "-seasonality_", params$seasonality,
-        "-first_test_season_", gsub("/", "-", analysis_time_season)
+        "-first_test_season_", gsub("/", "-", params$first_test_season)
       )
 
       kcde_fit_file_path <- file.path(params$estimation_results_path,
