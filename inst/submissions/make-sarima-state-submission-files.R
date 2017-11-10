@@ -82,4 +82,3 @@ make_predictions_plots(
     data = data
 )
 
-
