@@ -48,9 +48,9 @@ for(target in as.character(unique(submission$Target))) {
     paste0("xgbstack_fit_",
       target,
       ".rds"))
-  
+
   xgbstack_fit <- readRDS(file = xgbstack_fit_path)
-  
+
   ## get weights for component models
   component_model_weights <-
     compute_model_weights(xgbstack_fit,
@@ -63,17 +63,17 @@ for(target in as.character(unique(submission$Target))) {
   component_model_weights <- component_model_weights[
     sapply(tolower(component_model_names), function(mname) { which(tolower(weight_names) == mname) })]
   component_model_weights <- matrix(component_model_weights, ncol = 1)
-  
+
   ## set predicted values in submissions data frame as weighted combination of
   ## predicted values in component model data frames
   for(location in as.character(unique(submission$Location))) {
     inds <- (submission$Location == location) & (submission$Target == target)
-    
+
     component_preds_for_target <- sapply(component_model_submissions,
       function(x) {
         x$Value[inds]
       })
-    
+
     ## If target is a week of the year, convert to season before averaging
     ## This ensures reasonable predictions for week 51 of 2016 and week 4 of 2017
     if(target %in% c("Season onset", "Season peak week")) {
@@ -83,14 +83,14 @@ for(target in as.character(unique(submission$Target))) {
           year_week = component_preds_for_target[pointpred_ind, ],
           year = tail(data$year, 1))
     }
-  
+
 #    if(identical(location, "US National")) { # used for draft submissions before midnight
 #      component_preds_for_target <- component_preds_for_target[, 1:2]
 #    }
-    
+
     submission$Value[inds] <-
       component_preds_for_target %*% component_model_weights
-    
+
     ## If target is a week, convert back to week of year from week of season
     if(target %in% c("Season onset", "Season peak week")) {
       submission$Value[which(inds)[pointpred_ind]] <-
@@ -103,7 +103,7 @@ for(target in as.character(unique(submission$Target))) {
 
 
 res_file <- file.path(submissions_save_path,
-  "KoT",
+  "KoT-region",
   paste0(
     "EW", tail(data$week, 1),
     "-", tail(data$year, 1),
@@ -121,12 +121,10 @@ make_predictions_plots(
   preds_save_file = res_file,
   plots_save_file = paste0(
     submissions_save_path,
-    "/KoT",
-    "/plots/",
+    "/KoT-region-plots/",
     tail(data$year, 1),
     "-",
     tail(data$week, 1),
     "-KoT-plots.pdf"),
   data = data
 )
-
