@@ -6,10 +6,12 @@
 models on training data.}
 \usage{
 assemble_predictions(preds_path = "inst/estimation/loso-predictions",
-  regions = c("National", paste0("Region", 1:10)), seasons = "*",
-  models = c("kde", "kcde", "sarima"), prediction_targets = c("onset",
-  "peak_week", "peak_inc", "ph_1_inc", "ph_2_inc", "ph_3_inc", "ph_4_inc"),
-  prediction_types = c("log_score", "competition_log_score", "bin_log_probs"))
+  regions = c("National", paste0("Region", 1:10)),
+  seasons = paste0(2010:2016, "-", 2011:2017), models = c("kde", "kcde",
+  "sarima_seasonal_difference_TRUE", "sarima_seasonal_difference_FALSE"),
+  prediction_targets = c("onset", "peak_week", "peak_inc", "ph_1_inc",
+  "ph_2_inc", "ph_3_inc", "ph_4_inc"), prediction_types = c("log_score",
+  "competition_log_score", "bin_log_probs"))
 }
 \arguments{
 \item{preds_path}{path to leave-one-season-out or test phase predictions.}
@@ -18,7 +20,7 @@ assemble_predictions(preds_path = "inst/estimation/loso-predictions",
 "National" or "Regionk" for k in 1, ..., 10.}
 
 \item{seasons}{character vector specifying seasons for which to get predictions,
-"2011/2012" or "2011-2012" or "*" for all seasons}
+"2011/2012" or "2011-2012"}
 
 \item{models}{character vector specifying models for which to get predictions,
 "kde", "kcde", or "sarima"}

@@ -6,10 +6,11 @@ library(dplyr)
 library(tidyr)
 library(lubridate)
 library(MMWRweek)
-library(cdcfluview)
+library(cdcfluview) ## devtools::install_github("hrbrmstr/cdcfluview", ref="8bd99b7")
 library(forecast)
 library(FluSight)
 library(cdcFlu20172018)
+library(gridExtra)
 
 submissions_save_path <- "inst/submissions/sarima-state"
 
@@ -61,6 +62,16 @@ res_file <- file.path(submissions_save_path,
   )
 )
 
+plot_file <- file.path(submissions_save_path,
+    paste0(
+        "plots/EW",
+        tail(data$week, 1),
+        "-KoT-StateILI-",
+        ymd(Sys.Date()),
+        "-plots.pdf"
+    )
+)
+
 write.csv(sarima_res,
   file = res_file,
   row.names = FALSE)
@@ -69,17 +80,14 @@ write.csv(sarima_res,
 
 ### Plots for sanity
 
-make_predictions_plots(
-  preds_save_file = res_file,
-    plots_save_file = paste0(
-        submissions_save_path,
-        "/plots/",
-        "EW",
-        tail(data$week, 1),
-        "-KoT-StateILI-",
-        ymd(Sys.Date()),
-        "-plots.pdf"),
-    data = data
-)
-
-
+pdf(plot_file, width = 12)
+for(reg in unique(sarima_res$location)){
+    p_peakpct <- plot_peakper(sarima_res, region = reg) + ylim(0,1)
+    p_peakwk <- plot_peakweek(sarima_res, region = reg) + ylim(0,1)
+    p_1wk <- my_plot_weekahead(sarima_res, region = reg, wk = 1, ilimax=13, years = 2017:2018) + ggtitle(paste(reg, ": 1 wk ahead")) + ylim(0,1)
+    p_2wk <- my_plot_weekahead(sarima_res, region = reg, wk = 2, ilimax=13, years = 2017:2018) + ylim(0,1)
+    p_3wk <- my_plot_weekahead(sarima_res, region = reg, wk = 3, ilimax=13, years = 2017:2018) + ylim(0,1)
+    p_4wk <- my_plot_weekahead(sarima_res, region = reg, wk = 4, ilimax=13, years = 2017:2018) + ylim(0,1)
+    grid.arrange(p_1wk, p_2wk, p_3wk, p_4wk, p_peakpct, p_peakwk, ncol=4)
+}
+dev.off()

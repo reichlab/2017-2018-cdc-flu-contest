@@ -1,0 +1,6 @@
+language: generic
+dist: trusty
+git:
+  depth: 2
+script: true
+after_success: bash ./travis-push.sh

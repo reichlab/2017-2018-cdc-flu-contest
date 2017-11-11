@@ -6,7 +6,7 @@
 The weights are a function of observed covariates (which?),
 and are obtained via gradient tree boosting}
 \usage{
-fit_stacked_model(regions, prediction_target, component_model_names,
+fit_stacked_model(prediction_target, component_model_names,
   explanatory_variables = c("analysis_time_season_week",
   "kcde_model_confidence", "sarima_model_confidence", "weighted_ili"),
   loso_preds_path, seasons_to_leave_out, booster = "gbtree", subsample = 1,
@@ -17,9 +17,6 @@ fit_stacked_model(regions, prediction_target, component_model_names,
   verbose = 0)
 }
 \arguments{
-\item{regions}{string with region: either "National" or in the format
-"Regionk" for k in {1, ..., 10}}
-
 \item{prediction_target}{string with either "onset", "peak_week",
 "peak_inc", "ph1_inc", ..., "ph4_inc"}
 
