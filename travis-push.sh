@@ -10,5 +10,5 @@ else
     # Trigger xpull build on flusight
     bash trigger.sh reichlab/flusight travis-xpull.sh
     # Trigger xpull build on cdc-flusight-contest
-    bash trigger.sh FluSightNetwork/cdc-flusight-ensemble travis-xpull.sh
+    bash trigger.sh FluSightNetwork/cdc-flusight-ensemble travis/xpull.sh
 fi;
