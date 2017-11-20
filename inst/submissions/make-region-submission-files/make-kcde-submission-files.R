@@ -66,7 +66,7 @@ make_predictions_plots(
   preds_save_file = res_file,
   plots_save_file = paste0(
     submissions_save_path,
-    "/plots/",
+    "-plots/",
     tail(data$year, 1),
     "-",
     tail(data$week, 1),
