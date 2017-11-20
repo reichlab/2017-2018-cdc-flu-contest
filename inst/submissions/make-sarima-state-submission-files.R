@@ -80,6 +80,8 @@ write.csv(sarima_res,
 
 ### Plots for sanity
 
+sarima_res <- read_entry(res_file)
+
 pdf(plot_file, width = 12)
 for(reg in unique(sarima_res$location)){
     p_peakpct <- plot_peakper(sarima_res, region = reg) + ylim(0,1)
