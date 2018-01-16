@@ -23,7 +23,7 @@ component_model_submissions <- lapply(component_model_names,
     res_file <- file.path(submissions_save_path,
       paste0(name, "-region"),
       paste0("EW",
-        tail(data$week, 1),
+        sprintf("%02d", tail(data$week, 1)),
         "-",
         tail(data$year, 1),
         "-ReichLab_",
@@ -105,7 +105,7 @@ for(target in as.character(unique(submission$Target))) {
 res_file <- file.path(submissions_save_path,
   "KoT-region",
   paste0(
-    "EW", tail(data$week, 1),
+    "EW", sprintf("%02d", tail(data$week, 1)),
     "-", tail(data$year, 1),
     "-ReichLab_KoT",
     ".csv"))
@@ -124,7 +124,7 @@ make_predictions_plots(
     "/KoT-region-plots/",
     tail(data$year, 1),
     "-",
-    tail(data$week, 1),
+    sprintf("%02d", tail(data$week, 1)),
     "-KoT-plots.pdf"),
   data = data
 )

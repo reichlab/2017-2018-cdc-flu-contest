@@ -52,7 +52,7 @@ res <- get_submission_via_trajectory_simulation(
 
 res_file <- file.path(submissions_save_path,
   paste0(
-    "EW", tail(data$week, 1),
+    "EW", sprintf("%02d", tail(data$week, 1)),
     "-", tail(data$year, 1),
     "-ReichLab_", method,
     ".csv"))
@@ -72,7 +72,7 @@ make_predictions_plots(
     "-plots/",
     tail(data$year, 1),
     "-",
-    tail(data$week, 1),
+    sprintf("%02d", tail(data$week, 1)),
     "-KOT-", method, "-plots.pdf"),
   data = data
 )
