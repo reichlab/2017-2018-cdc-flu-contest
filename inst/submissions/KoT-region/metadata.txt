@@ -1,0 +1,10 @@
+team_name: ReichLab
+team_members: 'Evan L. Ray, Nicholas G. Reich'
+model_name: TBD
+model_abbr: TBD
+anonymity: named
+data_source1: TBD
+data_source2: TBD
+this_model_is_an_ensemble: FALSE
+methods: >-
+  TBD
