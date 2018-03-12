@@ -1,0 +1,10 @@
+team_name: ReichLab
+team_members: 'Evan L. Ray, Nicholas G. Reich'
+model_name: Kernel of Truth Weighted Ensemble 
+model_abbr: KoT
+anonymity: named
+data_source1: ilinet
+data_source2: NULL
+this_model_is_an_ensemble: TRUE
+methods: >-
+  Weighted ensemble of 3 models fit to past ILINet data, with model weights changing over the season: (1) kernel density estimation (for seasonal targets) or a simple seasonal spline model (for weekly incidence targets); (2) kernel conditional density estimation with copulas; and (3) a seasonal ARIMA model.
