@@ -1,6 +1,2 @@
 model-id,model-dir,complete
 ReichLab-KoT,KoT-region,true
-ReichLab-KCDE,kcde-region,true
-ReichLab-KDE,kde-region,true
-ReichLab-SARIMA1,sarima_seasonal_difference_FALSE-region,true
-ReichLab-SARIMA2,sarima_seasonal_difference_TRUE-region,true
